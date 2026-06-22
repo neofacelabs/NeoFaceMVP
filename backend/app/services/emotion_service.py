@@ -121,8 +121,8 @@ class EmotionService:
     def _get_face_mesh(cls):
         """Return the cached FaceMesh instance, initializing it on first use."""
         if cls._face_mesh is None:
-            import mediapipe as mp
-            cls._face_mesh = mp.solutions.face_mesh.FaceMesh(
+            from app.utils.mediapipe_compat import get_face_mesh
+            cls._face_mesh = get_face_mesh(
                 static_image_mode=False,   # False = optimized for video/streaming
                 max_num_faces=1,
                 refine_landmarks=True,

@@ -301,7 +301,6 @@ InsightFace • ArcFace • MediaPipe • OpenCV • FastAPI • PostgreSQL • 
         Returns 200 if all healthy, 503 if any check fails.
         """
         import os
-        import aiohttp
         checks: dict[str, str] = {}
         healthy = True
 

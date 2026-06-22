@@ -23,8 +23,9 @@ import math
 from dataclasses import dataclass, field
 
 import cv2
-import mediapipe as mp
 import numpy as np
+
+from app.utils.mediapipe_compat import get_face_mesh
 
 from app.core.config import settings
 from app.core.logging import logger
@@ -81,7 +82,7 @@ class LivenessService:
     YAW_TURN_THRESHOLD = 15.0       # Degrees — head turned left or right
 
     def __init__(self) -> None:
-        self._face_mesh = mp.solutions.face_mesh.FaceMesh(
+        self._face_mesh = get_face_mesh(
             static_image_mode=True,
             max_num_faces=1,
             refine_landmarks=True,

@@ -8,7 +8,7 @@
 # ── Stage 1: Builder ──────────────────────────────────────────────────────────
 FROM python:3.12-slim AS builder
 
-# System dependencies for OpenCV and InsightFace
+# System dependencies for OpenCV, InsightFace, and mediapipe
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
@@ -21,6 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     libgl1 \
     libglib2.0-dev \
+    libprotobuf-dev \
+    protobuf-compiler \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -54,6 +56,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libgomp1 \
     libgl1 \
+    libprotobuf-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -66,13 +69,18 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy application code
+# Copy application code and migration files
 COPY --chown=neoface:neoface ./app ./app
+COPY --chown=neoface:neoface ./migrations ./migrations
+COPY --chown=neoface:neoface ./alembic.ini ./alembic.ini
 COPY --chown=neoface:neoface .env.example .env.example
 
+# Startup entrypoint script (runs migrations then starts server)
+COPY --chown=neoface:neoface ./docker-entrypoint.sh ./docker-entrypoint.sh
+
 # Create directories for storage and logs
-RUN mkdir -p /app/storage/faces /app/logs /app/.insightface \
-    && chown -R neoface:neoface /app/storage /app/logs /app/.insightface
+RUN mkdir -p /app/storage/faces /app/logs /app/.insightface /app/models \
+    && chown -R neoface:neoface /app/storage /app/logs /app/.insightface /app/models
 
 # InsightFace model cache directory
 ENV INSIGHTFACE_HOME=/app/.insightface
@@ -88,15 +96,8 @@ USER neoface
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Start Uvicorn with production settings
-CMD ["uvicorn", "app.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "2", \
-     "--loop", "uvloop", \
-     "--http", "httptools", \
-     "--access-log", \
-     "--no-use-colors"]
+# Entrypoint: run migrations then start server
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

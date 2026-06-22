@@ -1,0 +1,73 @@
+services:
+  - type: web
+    name: neoface-backend
+    runtime: docker
+    # Build from the backend/ subdirectory
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: oregon
+    plan: standard  # 2 CPU / 4 GB RAM — required for InsightFace model loading
+
+    healthCheckPath: /health
+
+    envVars:
+      # ── Application ──────────────────────────────────────────────────────────
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+
+      # ── Database (Supabase) ───────────────────────────────────────────────────
+      - key: DATABASE_URL
+        value: postgresql+asyncpg://postgres:NeoFace%402026@db.wrpxcyievqnniviarcln.supabase.co:5432/postgres
+      - key: DATABASE_POOL_SIZE
+        value: "5"
+      - key: DATABASE_MAX_OVERFLOW
+        value: "10"
+
+      # ── Supabase ─────────────────────────────────────────────────────────────
+      - key: SUPABASE_URL
+        value: https://wrpxcyievqnniviarcln.supabase.co
+      - key: SUPABASE_PROJECT_REF
+        value: wrpxcyievqnniviarcln
+      - key: SUPABASE_ANON_KEY
+        value: sb_publishable_N4vf_FMD8hfIIV4YlVSBDQ_FFP5eZ4-
+
+      # ── JWT ───────────────────────────────────────────────────────────────────
+      - key: JWT_SECRET
+        generateValue: true   # Render generates a secure random value
+
+      # ── Firebase ─────────────────────────────────────────────────────────────
+      # Set FIREBASE_CREDENTIALS_JSON in Render Dashboard → Environment as a secret
+      - key: FIREBASE_CREDENTIALS_JSON
+        value: ""
+
+      # ── CORS ──────────────────────────────────────────────────────────────────
+      - key: ALLOWED_ORIGINS
+        value: '["https://neofacelabs.vercel.app","https://neoface.vercel.app","http://localhost:3000"]'
+
+      # ── Face recognition ──────────────────────────────────────────────────────
+      - key: ANTI_SPOOF_ENABLED
+        value: "false"    # Models must be bundled or downloaded; disable until mounted
+      - key: STRICT_MODEL_VERIFICATION
+        value: "false"    # Allow startup without ONNX weights
+      - key: USE_LIVENESS_PIPELINE
+        value: "true"
+
+      # ── Redis (add Render Redis add-on and replace URL) ───────────────────────
+      - key: REDIS_URL
+        value: redis://localhost:6379/0  # Replace with Render Redis URL
+
+      # ── Storage ───────────────────────────────────────────────────────────────
+      - key: STORAGE_BACKEND
+        value: supabase
+
+      # ── Admin bootstrap ───────────────────────────────────────────────────────
+      - key: ADMIN_EMAIL
+        value: admin@neoface.io
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: ADMIN_NAME
+        value: NeoFace Admin

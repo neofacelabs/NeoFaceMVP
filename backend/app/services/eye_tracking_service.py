@@ -24,8 +24,9 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 import cv2
-import mediapipe as mp
 import numpy as np
+
+from app.utils.mediapipe_compat import get_face_mesh
 
 from app.core.logging import logger
 
@@ -78,7 +79,7 @@ class EyeTrackingService:
 
     def __init__(self) -> None:
         # Enable iris refinement for pupil/iris tracking
-        self._face_mesh = mp.solutions.face_mesh.FaceMesh(
+        self._face_mesh = get_face_mesh(
             static_image_mode=True,
             max_num_faces=1,
             refine_landmarks=True,        # Enables iris landmarks (468–477)

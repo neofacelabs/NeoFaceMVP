@@ -46,7 +46,7 @@ loguru==0.7.3
 insightface==0.7.3
 onnxruntime==1.20.1
 opencv-python-headless==4.10.0.84
-mediapipe==0.10.18
+mediapipe==0.10.14          # Pin to last stable version with mp.solutions API
 numpy==1.26.4
 
 # ── HTTP Client (tests & internal) ───────────────────────────────────────────
@@ -69,6 +69,7 @@ cryptography==43.0.3           # AES-GCM encryption for sensitive fields
 
 # ── WebRTC Streaming ──────────────────────────────────────────────────────────
 aiortc==1.9.0                  # WebRTC streaming client & server for Python
+aiohttp==3.9.5                 # Async HTTP client used in health deep check
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Development & Testing (install with: pip install -r requirements-dev.txt)

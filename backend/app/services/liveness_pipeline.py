@@ -36,8 +36,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import cv2
-import mediapipe as mp
 import numpy as np
+
+from app.utils.mediapipe_compat import get_face_mesh
 
 from app.core.config import settings
 from app.core.logging import logger
@@ -143,7 +144,7 @@ class LivenessPipeline:
         self._anti_spoof = anti_spoof or AntiSpoofService.get_instance()
 
         # MediaPipe Face Mesh is lightweight — create fresh per instance
-        self._face_mesh = mp.solutions.face_mesh.FaceMesh(
+        self._face_mesh = get_face_mesh(
             static_image_mode=True,
             max_num_faces=1,
             refine_landmarks=True,

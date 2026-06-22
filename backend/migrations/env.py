@@ -3,7 +3,6 @@ Alembic Migration Environment
 Configured for async SQLAlchemy with auto-migration support.
 """
 
-import asyncio
 from logging.config import fileConfig
 
 from alembic import context
@@ -18,9 +17,15 @@ from app.models import *  # noqa: F401, F403
 
 config = context.config
 
-# Override URL from application settings (async version for Alembic)
+# Override URL from application settings
+# Alembic migrations must use the synchronous psycopg2 driver.
+# The app uses asyncpg (+asyncpg), so we swap it out here.
+db_url = settings.DATABASE_URL
+# Swap async driver variants to psycopg2
+db_url = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+db_url = db_url.replace("postgresql+aiopg://", "postgresql+psycopg2://")
 # Escape % for ConfigParser interpolation
-safe_url = settings.DATABASE_URL.replace("%", "%%")
+safe_url = db_url.replace("%", "%%")
 config.set_main_option("sqlalchemy.url", safe_url)
 
 if config.config_file_name is not None:
@@ -66,7 +71,18 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
+    """Run migrations using synchronous (psycopg2) engine."""
+    from sqlalchemy import create_engine
+    url = config.get_main_option("sqlalchemy.url")
+    connectable = create_engine(url, poolclass=pool.NullPool)
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+        )
+        with context.begin_transaction():
+            context.run_migrations()
 
 
 if context.is_offline_mode():
