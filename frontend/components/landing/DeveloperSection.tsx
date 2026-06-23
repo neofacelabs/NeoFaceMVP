@@ -7,9 +7,9 @@ type Lang = "REST" | "Python" | "Node.js" | "Go" | "cURL";
 const SNIPPETS: Record<Lang, { lines: { type: string; text: string }[] }> = {
   REST: {
     lines: [
-      { type: "comment",  text: "# Authorize a biometric payment" },
+      { type: "comment",  text: "# Verify a biometric identity" },
       { type: "keyword",  text: "POST " },
-      { type: "url",      text: "https://api.neoface.io/payments/authorize" },
+      { type: "url",      text: "https://api.neoface.io/auth/verify" },
       { type: "blank",    text: "" },
       { type: "key",      text: "Authorization: " },
       { type: "value",    text: "Bearer nf_live_sk_xxxxxxxxxxxx" },
@@ -17,28 +17,28 @@ const SNIPPETS: Record<Lang, { lines: { type: string; text: string }[] }> = {
       { type: "value",    text: "application/json" },
       { type: "blank",    text: "" },
       { type: "bracket",  text: "{" },
-      { type: "field",    text: '  "faceId":     ' },
-      { type: "string",   text: '"verified",' },
-      { type: "field",    text: '  "irisId":     ' },
-      { type: "string",   text: '"verified",' },
-      { type: "field",    text: '  "fingerprint":' },
-      { type: "string",   text: '"verified",' },
-      { type: "field",    text: '  "amount":     ' },
-      { type: "string",   text: '"1250",' },
-      { type: "field",    text: '  "merchant":   ' },
-      { type: "string",   text: '"merchant_reliance_01"' },
+      { type: "field",    text: '  "userId":     ' },
+      { type: "string",   text: '"user_7f3k9a",' },
+      { type: "field",    text: '  "modality":   ' },
+      { type: "string",   text: '"face",' },
+      { type: "field",    text: '  "liveness":   ' },
+      { type: "value",    text: 'true,' },
+      { type: "field",    text: '  "riskCheck":  ' },
+      { type: "value",    text: 'true' },
       { type: "bracket",  text: "}" },
       { type: "blank",    text: "" },
       { type: "comment",  text: "# → 200 OK" },
       { type: "bracket",  text: "{" },
       { type: "field",    text: '  "status":     ' },
-      { type: "string",   text: '"approved",' },
-      { type: "field",    text: '  "txnId":      ' },
-      { type: "string",   text: '"txn_8f2k9a3b",' },
-      { type: "field",    text: '  "amount":     ' },
-      { type: "number",   text: "1250," },
+      { type: "string",   text: '"verified",' },
+      { type: "field",    text: '  "authId":     ' },
+      { type: "string",   text: '"auth_8f2k9a3b",' },
+      { type: "field",    text: '  "confidence": ' },
+      { type: "number",   text: "99.8," },
+      { type: "field",    text: '  "riskScore":  ' },
+      { type: "string",   text: '"low",' },
       { type: "field",    text: '  "latency_ms": ' },
-      { type: "number",   text: "87" },
+      { type: "number",   text: "61" },
       { type: "bracket",  text: "}" },
     ],
   },
@@ -54,22 +54,22 @@ const SNIPPETS: Record<Lang, { lines: { type: string; text: string }[] }> = {
       { type: "bracket",   text: ")" },
       { type: "blank",     text: "" },
       { type: "keyword",   text: "result " },
-      { type: "value",     text: "= client.payments.authorize(" },
-      { type: "field",     text: "    face_id=" },
-      { type: "string",    text: '"verified",' },
-      { type: "field",     text: "    iris_id=" },
-      { type: "string",    text: '"verified",' },
-      { type: "field",     text: "    fingerprint=" },
-      { type: "string",    text: '"verified",' },
-      { type: "field",     text: "    amount=" },
-      { type: "number",    text: "1250," },
+      { type: "value",     text: "= client.auth.verify(" },
+      { type: "field",     text: "    user_id=" },
+      { type: "string",    text: '"user_7f3k9a",' },
+      { type: "field",     text: "    modality=" },
+      { type: "string",    text: '"face",' },
+      { type: "field",     text: "    liveness=" },
+      { type: "value",     text: "True," },
+      { type: "field",     text: "    risk_check=" },
+      { type: "value",     text: "True," },
       { type: "bracket",   text: ")" },
       { type: "blank",     text: "" },
       { type: "keyword",   text: "if " },
-      { type: "value",     text: 'result.status == "approved":' },
+      { type: "value",     text: 'result.status == "verified":' },
       { type: "function",  text: "    print" },
       { type: "bracket",   text: "(" },
-      { type: "string",    text: 'f"✓ Payment {result.txn_id} authorized"' },
+      { type: "string",    text: 'f"✓ User {result.auth_id} authenticated"' },
       { type: "bracket",   text: ")" },
     ],
   },
@@ -92,21 +92,19 @@ const SNIPPETS: Record<Lang, { lines: { type: string; text: string }[] }> = {
       { type: "bracket",   text: "})" },
       { type: "blank",     text: "" },
       { type: "keyword",   text: "const " },
-      { type: "value",     text: "{ status, txnId } " },
+      { type: "value",     text: "{ status, authId, riskScore } " },
       { type: "keyword",   text: "= await " },
-      { type: "value",     text: "client.payments.authorize" },
+      { type: "value",     text: "client.auth.verify" },
       { type: "bracket",   text: "({" },
-      { type: "field",     text: "  faceId: " },
-      { type: "string",    text: '"verified",' },
-      { type: "field",     text: "  irisId: " },
-      { type: "string",    text: '"verified",' },
-      { type: "field",     text: "  fingerprint: " },
-      { type: "string",    text: '"verified",' },
-      { type: "field",     text: "  amount: " },
-      { type: "number",    text: "1250" },
+      { type: "field",     text: "  userId: " },
+      { type: "string",    text: '"user_7f3k9a",' },
+      { type: "field",     text: "  modality: " },
+      { type: "string",    text: '"face",' },
+      { type: "field",     text: "  liveness: " },
+      { type: "value",     text: "true," },
       { type: "bracket",   text: "})" },
       { type: "blank",     text: "" },
-      { type: "comment",   text: '// → { status: "approved", txnId: "txn_8f2k9a3b" }' },
+      { type: "comment",   text: '// → { status: "verified", authId: "auth_8f2k9a3b", riskScore: "low" }' },
     ],
   },
   Go: {
@@ -184,11 +182,11 @@ const TYPE_COLOR: Record<string, string> = {
 };
 
 const FEATURES = [
-  "Biometric payment APIs",
-  "Merchant SDK integration",
-  "Real-time webhooks",
-  "POS & terminal support",
-  "Banking & fintech ready",
+  "Biometric auth REST & GraphQL APIs",
+  "Native iOS, Android & Web SDKs",
+  "Real-time webhooks & event streams",
+  "MFA & passwordless drop-in",
+  "SOC 2 Type II · GDPR ready",
   "99.99% uptime SLA",
 ];
 
@@ -287,11 +285,11 @@ export function DeveloperSection() {
           >
             <div className="tag tag-accent inline-flex mb-6">Developer platform</div>
             <h2 className="text-title-1 text-white mb-6 leading-tight">
-              From API To Payment.<br />
+              From API To Auth.<br />
               <span className="text-gradient-accent">In Minutes.</span>
             </h2>
             <p className="text-[18px] text-[rgba(255,255,255,0.42)] leading-[1.7] mb-12 max-w-sm">
-              Integrate biometric payments into apps, banks, retailers, POS systems, and fintech platforms with a developer-first API.
+              Integrate biometric authentication into any app, banking portal, healthcare system, or enterprise login with a developer-first API.
             </p>
 
             {/* Features list */}
@@ -356,8 +354,8 @@ export function DeveloperSection() {
             {/* Payment API stats row */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Avg Latency", val: "87ms", color: "#00E5A8" },
-                { label: "p99 Latency", val: "140ms", color: "#00C2FF" },
+                { label: "Avg Latency", val: "61ms",  color: "#00E5A8" },
+                { label: "p99 Latency", val: "120ms", color: "#00C2FF" },
                 { label: "Uptime SLA",  val: "99.99%", color: "#00E5A8" },
               ].map(s => (
                 <div key={s.label} className="bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.06)] rounded-xl p-3 text-center">

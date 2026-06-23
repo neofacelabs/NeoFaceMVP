@@ -6,45 +6,13 @@ import Image from "next/image";
 
 /* ── Trust Chips ──────────────────────────────────────────────────────────── */
 const TRUST_CHIPS = [
-  "Face Recognition",
-  "Iris Authentication",
-  "Fingerprint Payments",
+  "Face Auth",
+  "Iris Scan",
+  "Fingerprint",
   "Liveness Detection",
-  "Merchant APIs",
-  "Banking Grade",
+  "Risk Scoring",
+  "99.9% Uptime",
 ];
-
-/* ── Floating Cards ───────────────────────────────────────────────────────── */
-function FloatingCard({
-  children,
-  className,
-  delay,
-  floatAmplitude = 5,
-  floatDuration = 4,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  delay: number;
-  floatAmplitude?: number;
-  floatDuration?: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9, y: 8 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className={`absolute z-30 ${className}`}
-    >
-      <motion.div
-        animate={{ y: [0, -floatAmplitude, 0] }}
-        transition={{ duration: floatDuration, repeat: Infinity, ease: "easeInOut" }}
-        className="backdrop-blur-xl bg-black/70 border border-white/[0.1] rounded-xl px-3.5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-      >
-        {children}
-      </motion.div>
-    </motion.div>
-  );
-}
 
 /* ── Main Hero ────────────────────────────────────────────────────────────── */
 export function HeroSection() {
@@ -139,11 +107,11 @@ export function HeroSection() {
             >
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#00E5A8]/20 bg-[#00E5A8]/[0.06] text-[#00E5A8] text-[11px] font-semibold tracking-wide">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#00E5A8] animate-pulse flex-shrink-0" />
-                Biometric Payment Infrastructure
+                Authentication-as-a-Service
               </div>
             </motion.div>
 
-            {/* Headline — tight, premium */}
+            {/* Headline */}
             <div className="mb-6 overflow-hidden">
               <motion.h1
                 className="font-bold text-white tracking-[-0.03em] leading-[1.08]"
@@ -155,15 +123,23 @@ export function HeroSection() {
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  Payments.
+                  Authenticate.
+                </motion.span>
+                <motion.span
+                  className="block"
+                  initial={{ y: "110%", opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.8, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  Anyone.
                 </motion.span>
                 <motion.span
                   className="block text-white/60"
                   initial={{ y: "110%", opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.8, delay: 0.26, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  Powered By You.
+                  Anywhere.
                 </motion.span>
               </motion.h1>
             </div>
@@ -176,8 +152,8 @@ export function HeroSection() {
               className="text-[15px] lg:text-[16px] text-white/44 leading-[1.72] max-w-[460px] mb-8 font-normal"
               style={{ color: "rgba(255,255,255,0.44)" }}
             >
-              Transform your face, iris, and fingerprint into a secure payment credential.
-              Authorize transactions instantly — no cards, no phones, no PINs.
+              Replace passwords with biometrics. Drop in our REST API and SDKs to add
+              face, iris, and fingerprint authentication to any app — in minutes, not months.
             </motion.p>
 
             {/* CTAs */}
@@ -189,24 +165,24 @@ export function HeroSection() {
             >
               <Link href="/enroll">
                 <motion.button
-                  whileHover={{ scale: 1.03, boxShadow: "0 10px 36px rgba(255,255,255,0.18)" }}
+                  whileHover={{ scale: 1.03, boxShadow: "0 0 32px rgba(0,229,168,0.35)" }}
                   whileTap={{ scale: 0.97 }}
-                  className="px-6 py-3 rounded-full bg-white text-black font-semibold text-[13.5px] flex items-center gap-2 shadow-[0_6px_24px_rgba(255,255,255,0.1)]"
+                  className="px-6 py-3 rounded-full bg-[#00E5A8] text-black font-semibold text-[13.5px] flex items-center gap-2"
                 >
-                  Start Building
+                  Get API Key
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                     <path d="M1.5 6h9M7 2.5L10.5 6 7 9.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </motion.button>
               </Link>
 
-              <Link href="#product">
+              <Link href="#developers">
                 <motion.button
                   whileHover={{ scale: 1.03, backgroundColor: "rgba(255,255,255,0.07)" }}
                   whileTap={{ scale: 0.97 }}
                   className="px-6 py-3 rounded-full border border-white/[0.11] bg-white/[0.04] text-white font-medium text-[13.5px] backdrop-blur-md transition-colors"
                 >
-                  Watch Demo
+                  View Docs
                 </motion.button>
               </Link>
             </motion.div>
@@ -347,13 +323,13 @@ export function HeroSection() {
                   className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/55 border border-white/[0.07] backdrop-blur-md"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-[#00E5A8] animate-pulse" />
-                  <span className="text-[9.5px] font-mono text-white/45 tracking-[0.12em] uppercase">Live · NeoFace Pay</span>
+                  <span className="text-[9.5px] font-mono text-white/45 tracking-[0.12em] uppercase">Live · NeoFace Auth</span>
                 </motion.div>
               </div>
 
               {/* ── Floating cards ── */}
 
-              {/* Payment Approved — top right */}
+              {/* Auth Granted — top right */}
               <motion.div
                 style={{ x: cardX, y: cardY }}
                 className="absolute -top-3 -right-3 lg:-top-4 lg:-right-6 z-30"
@@ -375,15 +351,15 @@ export function HeroSection() {
                         </svg>
                       </div>
                       <div>
-                        <div className="text-[11px] font-semibold text-[#00E5A8] leading-tight">Payment Approved</div>
-                        <div className="text-[10px] text-white/40 font-mono mt-0.5">₹1,250 · Verified</div>
+                        <div className="text-[11px] font-semibold text-[#00E5A8] leading-tight">Auth Granted</div>
+                        <div className="text-[10px] text-white/40 font-mono mt-0.5">Identity Verified · 61ms</div>
                       </div>
                     </div>
                   </motion.div>
                 </motion.div>
               </motion.div>
 
-              {/* Face Recognition — bottom left */}
+              {/* Face Auth — bottom left */}
               <motion.div className="absolute -bottom-3 -left-3 lg:-bottom-4 lg:-left-6 z-30">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.85, y: 8 }}
@@ -403,15 +379,15 @@ export function HeroSection() {
                         </svg>
                       </div>
                       <div>
-                        <div className="text-[11px] font-semibold text-[#00C2FF] leading-tight">Face Recognition</div>
-                        <div className="text-[10px] text-white/40 font-mono mt-0.5">99.8% Match</div>
+                        <div className="text-[11px] font-semibold text-[#00C2FF] leading-tight">Face Auth</div>
+                        <div className="text-[10px] text-white/40 font-mono mt-0.5">99.8% Match · Liveness ✓</div>
                       </div>
                     </div>
                   </motion.div>
                 </motion.div>
               </motion.div>
 
-              {/* Iris — mid right */}
+              {/* Risk Score — mid right */}
               <motion.div className="absolute top-[42%] -right-3 lg:-right-8 z-30 -translate-y-1/2">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.85, x: 8 }}
@@ -426,14 +402,12 @@ export function HeroSection() {
                     <div className="flex items-center gap-2.5">
                       <div className="w-6 h-6 rounded-full bg-white/[0.05] border border-white/10 flex items-center justify-center flex-shrink-0">
                         <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                          <circle cx="5.5" cy="5.5" r="5" stroke="rgba(0,229,168,0.7)" strokeWidth="0.9" />
-                          <circle cx="5.5" cy="5.5" r="2.5" stroke="rgba(0,229,168,0.4)" strokeWidth="0.7" />
-                          <circle cx="5.5" cy="5.5" r="1" fill="rgba(0,229,168,0.85)" />
+                          <path d="M5.5 1L1 4v3c0 2 2 3.5 4.5 3.5S10 9 10 7V4L5.5 1z" stroke="rgba(0,229,168,0.7)" strokeWidth="0.9" strokeLinejoin="round" />
                         </svg>
                       </div>
                       <div>
-                        <div className="text-[11px] font-semibold text-white/75 leading-tight">Iris Verified</div>
-                        <div className="text-[10px] text-white/35 font-mono mt-0.5">Liveness Passed</div>
+                        <div className="text-[11px] font-semibold text-white/75 leading-tight">Risk Score</div>
+                        <div className="text-[10px] text-[#00E5A8]/70 font-mono mt-0.5">Low · Safe</div>
                       </div>
                     </div>
                   </motion.div>

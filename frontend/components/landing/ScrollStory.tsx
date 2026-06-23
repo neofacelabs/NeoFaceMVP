@@ -74,7 +74,7 @@ function StoryVisualBiometric() {
 
         <div className="mt-12 text-center text-[10px] font-mono text-[#00E5A8]">
           <motion.div initial={{ opacity: 0.5 }} animate={{ opacity: 1 }} transition={{ duration: 1, repeat: Infinity, repeatType: "reverse" }}>
-            ₹ 1,250 · PAYMENT AUTHORIZED
+            USER AUTHENTICATED · 61ms
           </motion.div>
         </div>
       </div>
@@ -112,8 +112,8 @@ export function ScrollStory() {
             transition={{ duration: 0.8 }}
             className="text-[clamp(3rem,5vw,5rem)] font-bold tracking-tighter text-white leading-[1.1]"
           >
-            Payments Shouldn't <br className="hidden md:block" />
-            Require Devices.
+            Passwords Shouldn't <br className="hidden md:block" />
+            Be The Default.
           </motion.h2>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
@@ -122,8 +122,8 @@ export function ScrollStory() {
             transition={{ duration: 0.8, delay: 0.1 }}
             className="text-[18px] md:text-[22px] text-white/40 mt-8 max-w-3xl mx-auto leading-relaxed"
           >
-            Today's payment systems depend on phones, cards, OTPs, passwords, QR codes, and hardware tokens.
-            NeoFace replaces them all with <span className="text-white">biometric identity</span> — one person, one payment layer.
+            Today&apos;s auth systems depend on passwords, OTPs, SMS codes, hardware tokens, and session cookies.
+            NeoFace replaces them all with <span className="text-white">biometric identity</span> — one API, one call, one verified human.
           </motion.p>
         </div>
 
@@ -136,12 +136,12 @@ export function ScrollStory() {
           >
             <div className="text-[#f87171] font-mono text-[11px] font-bold tracking-[0.2em] mb-6">THE PROBLEM</div>
             <h3 className="text-[32px] md:text-[44px] font-bold text-white mb-6 leading-[1.1] tracking-tight">
-              Every payment still needs a device.
+              Every login still depends on passwords.
             </h3>
             <p className="text-[16px] md:text-[18px] text-white/40 leading-[1.7]">
-              Cards get lost. Phones die. PINs are forgotten. OTPs arrive late. 
-              QR codes fail. Hardware tokens get stolen. The entire device-dependent payment stack 
-              creates friction — and risk — at every transaction.
+              Passwords get phished. OTPs get intercepted. SMS codes arrive late.
+              Hardware tokens get lost. Session cookies get stolen.
+              The entire credential-based auth stack creates friction — and catastrophic security risk — for every user.
             </p>
           </motion.div>
           <motion.div
@@ -172,12 +172,12 @@ export function ScrollStory() {
           >
             <div className="text-[#00E5A8] font-mono text-[11px] font-bold tracking-[0.2em] mb-6">THE SOLUTION</div>
             <h3 className="text-[32px] md:text-[44px] font-bold text-white mb-6 leading-[1.1] tracking-tight">
-              Your identity becomes your wallet.
+              Your face becomes your login.
             </h3>
             <p className="text-[16px] md:text-[18px] text-white/40 leading-[1.7]">
-              NeoFace fuses Face, Iris, and Fingerprint into a single payment authorization layer.
+              NeoFace fuses Face, Iris, and Fingerprint into a single authentication API.
               <br/><br/>
-              One person. One identity. Infinite transactions — with zero hardware required.
+              Drop in our SDK. Call one endpoint. Get a verified identity decision in under 100ms — no passwords, no hardware required.
             </p>
           </motion.div>
         </div>

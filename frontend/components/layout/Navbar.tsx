@@ -9,10 +9,10 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 
 const NAV = [
-  { label: "Payments",      href: "#product" },
-  { label: "Developers",    href: "#developers" },
-  { label: "Security",      href: "#security" },
-  { label: "Use Cases",     href: "#architecture" },
+  { label: "Features",    href: "#product" },
+  { label: "Developers",  href: "#developers" },
+  { label: "Security",    href: "#security" },
+  { label: "Pricing",     href: "/pricing" },
 ];
 
 export function Navbar() {
@@ -57,7 +57,12 @@ export function Navbar() {
               <Link
                 key={item.label}
                 href={item.href}
-                className="px-4 py-2 text-[13px] text-[rgba(255,255,255,0.42)] hover:text-white rounded-lg hover:bg-[rgba(255,255,255,0.04)] transition-all duration-150 font-medium tracking-[-0.01em]"
+                className={cn(
+                  "px-4 py-2 text-[13px] rounded-lg hover:bg-[rgba(255,255,255,0.04)] transition-all duration-150 font-medium tracking-[-0.01em]",
+                  item.label === "Pricing"
+                    ? "text-[#00E5A8]/80 hover:text-[#00E5A8]"
+                    : "text-[rgba(255,255,255,0.42)] hover:text-white"
+                )}
               >
                 {item.label}
               </Link>
@@ -86,11 +91,11 @@ export function Navbar() {
                 </Link>
                 <Link href="/enroll">
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
+                    whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(0,229,168,0.3)" }}
                     whileTap={{ scale: 0.98 }}
-                    className="btn-white px-5 py-2 text-[13px] rounded-full font-semibold"
+                    className="px-5 py-2 text-[13px] rounded-full font-semibold bg-[#00E5A8] text-black"
                   >
-                    Start Building
+                    Get API Key
                   </motion.button>
                 </Link>
               </>
@@ -123,7 +128,12 @@ export function Navbar() {
                   key={item.label}
                   href={item.href}
                   onClick={() => setOpen(false)}
-                  className="px-3 py-3 text-sm text-[rgba(255,255,255,0.55)] hover:text-white rounded-xl hover:bg-[rgba(255,255,255,0.04)] transition-all font-medium"
+                  className={cn(
+                    "px-3 py-3 text-sm rounded-xl hover:bg-[rgba(255,255,255,0.04)] transition-all font-medium",
+                    item.label === "Pricing"
+                      ? "text-[#00E5A8]/70 hover:text-[#00E5A8]"
+                      : "text-[rgba(255,255,255,0.55)] hover:text-white"
+                  )}
                 >
                   {item.label}
                 </Link>
@@ -135,8 +145,8 @@ export function Navbar() {
                   </button>
                 </Link>
                 <Link href="/enroll" onClick={() => setOpen(false)}>
-                  <button className="w-full py-2.5 text-sm btn-white rounded-xl font-semibold text-black">
-                    Start Building
+                  <button className="w-full py-2.5 text-sm rounded-xl font-semibold bg-[#00E5A8] text-black">
+                    Get API Key
                   </button>
                 </Link>
               </div>

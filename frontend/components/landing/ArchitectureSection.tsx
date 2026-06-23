@@ -4,39 +4,39 @@ import { motion, useInView } from "framer-motion";
 
 const LAYERS = [
   {
-    id: "retail",
-    label: "Retail Payments",
-    sublabel: "Pay in stores with your face",
-    color: "#00C2FF",
-    nodes: ["Face Pay", "POS Terminal", "Receipt API", "Merchant SDK"],
-  },
-  {
     id: "banking",
-    label: "Banking Authentication",
-    sublabel: "Authorize high-value transactions",
+    label: "Banking & Finance",
+    sublabel: "High-assurance login & transaction auth",
     color: "#00E5A8",
-    nodes: ["Branch Auth", "Wire Transfer", "Iris Verify", "Compliance"],
+    nodes: ["Branch Login", "Wire Auth", "Iris Verify", "Compliance"],
   },
   {
-    id: "transit",
-    label: "Transit Payments",
-    sublabel: "Walk through and pay instantly",
+    id: "enterprise",
+    label: "Enterprise SSO",
+    sublabel: "Passwordless workforce authentication",
     color: "#00C2FF",
-    nodes: ["Metro Gates", "Bus Fare", "Toll Booths", "Zero Tap"],
+    nodes: ["SAML 2.0", "OIDC", "MFA Replace", "Zero Trust"],
   },
   {
     id: "healthcare",
-    label: "Healthcare Payments",
-    sublabel: "Secure patient billing",
+    label: "Healthcare",
+    sublabel: "HIPAA-compliant patient identity",
     color: "#00FFD1",
-    nodes: ["Patient Auth", "Bill Pay", "Insurance", "Pharmacy"],
+    nodes: ["Patient Auth", "EHR Access", "Prescription", "Telemedicine"],
+  },
+  {
+    id: "consumer",
+    label: "Consumer Apps",
+    sublabel: "Frictionless user login at scale",
+    color: "#00C2FF",
+    nodes: ["Face Login", "Fingerprint", "Liveness SDK", "Risk Score"],
   },
   {
     id: "fintech",
-    label: "Fintech Integrations",
-    sublabel: "Embed biometric payments anywhere",
+    label: "Fintech & Payments",
+    sublabel: "Biometric auth before every transaction",
     color: "#00E5A8",
-    nodes: ["Payment SDK", "Open Banking", "Wallet API", "Smart City"],
+    nodes: ["Auth API", "Open Banking", "Wallet Guard", "PSD2 SCA"],
   },
 ];
 
@@ -142,21 +142,21 @@ export function ArchitectureSection() {
             transition={{ duration: 0.8 }}
             className="lg:sticky lg:top-24"
           >
-            <div className="tag tag-accent inline-flex mb-6">Payment experiences</div>
+            <div className="tag tag-accent inline-flex mb-6">Use cases</div>
             <h2 className="text-title-1 text-white mb-5">
               One Platform.<br />
-              <span className="text-gradient-accent">Every Payment Experience.</span>
+              <span className="text-gradient-accent">Every Auth Use Case.</span>
             </h2>
             <p className="text-[16px] text-[rgba(255,255,255,0.42)] leading-[1.7] mb-10 max-w-sm">
-              NeoFace powers biometric payments across retail, banking, transit, healthcare, and smart city commerce — all from a single API.
+              NeoFace powers biometric authentication across banking, enterprise, healthcare, consumer apps, and fintech — all from a single API.
             </p>
 
             {/* Payment stats */}
             <div className="space-y-6">
               {[
-                { label: "Deployment",       val: "Cloud or On-Prem",   desc: "Air-gapped enterprise option" },
-                { label: "Payment Volume",   val: "10M+ txns/day",      desc: "At sustained peak load" },
-                { label: "Integrations",     val: "Banks, POS, Apps",   desc: "Plug-in to existing payment rails" },
+                { label: "Deployment",     val: "Cloud or On-Prem",   desc: "Air-gapped enterprise option" },
+                { label: "Auth Volume",    val: "10M+ verifies/day",  desc: "At sustained peak load" },
+                { label: "Integrations",  val: "Apps, Banks, APIs",  desc: "Plug in to any identity system" },
               ].map(stat => (
                 <div key={stat.label} className="flex gap-4 items-start">
                   <div className="w-px h-full bg-[rgba(255,255,255,0.08)] self-stretch min-h-[40px]" />

@@ -85,9 +85,9 @@ const MODALITIES = [
   {
     id: "face",
     title: "Face Recognition",
-    subtitle: "Ultra-fast facial payment auth",
+    subtitle: "Ultra-fast identity verification",
     description:
-      "Ultra-fast facial authentication with liveness detection and anti-spoof protection. Authorize payments in under 150ms with 99.97% accuracy.",
+      "Ultra-fast facial authentication with liveness detection and anti-spoof protection. Verify any user identity in under 150ms with 99.97% accuracy — drop in our SDK with three lines of code.",
     color: "#00E5A8",
     spec: "< 150ms · 99.97% accuracy · Anti-spoof",
     visual: <FaceRecognitionVisual />,
@@ -97,7 +97,7 @@ const MODALITIES = [
     title: "Iris Recognition",
     subtitle: "Military-grade verification",
     description:
-      "Military-grade identity verification using unique iris patterns. Near-perfect discrimination even between identical twins — at standoff distance.",
+      "Military-grade identity verification using unique iris patterns. Near-perfect discrimination even between identical twins — at standoff distance. Ideal for banking, healthcare, and enterprise SSO.",
     color: "#00C2FF",
     spec: "250+ iris codes · 0.0001% FAR · NIR optimized",
     visual: <IrisVisual />,
@@ -105,9 +105,9 @@ const MODALITIES = [
   {
     id: "fingerprint",
     title: "Fingerprint Recognition",
-    subtitle: "Frictionless fingerprint approval",
+    subtitle: "Frictionless fingerprint login",
     description:
-      "Secure fingerprint matching for frictionless payment approvals. Multi-sensor fusion defeats silicon, gelatin, and film spoofing attacks.",
+      "Secure fingerprint matching for frictionless logins and transaction approvals. Multi-sensor fusion defeats silicon, gelatin, and film spoofing attacks.",
     color: "#00E5A8",
     spec: "< 80ms · Multi-sensor fusion · Anti-spoof hardware",
     visual: <FingerprintVisual />,
@@ -117,9 +117,9 @@ const MODALITIES = [
     title: "Unified Biometric Engine",
     subtitle: "One decision. Three signals.",
     description:
-      "NeoFace fuses all three authentication methods — face, iris, and fingerprint — into a single payment decision engine. Every transaction is authorized through multi-factor biometric verification for maximum security and zero friction.",
+      "NeoFace fuses all three authentication methods — face, iris, and fingerprint — into a single identity decision engine. Every auth request is resolved through multi-factor biometric verification for maximum security and zero friction. Integrate via one API endpoint.",
     color: "#00C2FF",
-    spec: "Multi-factor · Real-time fusion · Payment-grade",
+    spec: "Multi-factor · Real-time fusion · API-first",
     visual: <BiometricFusionVisual />,
   },
 ];
@@ -204,10 +204,10 @@ export function ModalitiesSection() {
           transition={{ duration: 0.7 }}
           className="mb-16 text-center"
         >
-          <div className="tag tag-accent inline-flex mb-6">Biometric payment methods</div>
+          <div className="tag tag-accent inline-flex mb-6">Authentication methods</div>
           <h2 className="text-title-1 text-white max-w-2xl mx-auto">
             Three Biometrics.<br />
-            <span className="text-gradient-accent">One Payment Network.</span>
+            <span className="text-gradient-accent">One Auth Platform.</span>
           </h2>
         </motion.div>
 

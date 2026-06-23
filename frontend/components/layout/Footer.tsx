@@ -2,8 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 
 const COLS = {
-  Products: ["Face Pay", "Iris Pay", "Fingerprint Pay", "Merchant APIs"],
-  Developers: ["Documentation", "API Reference", "Security", "Status"],
+  Products: ["Face Auth", "Iris Auth", "Fingerprint Auth", "Risk Scoring"],
+  Developers: ["Documentation", "API Reference", "SDKs", "Status"],
   Company: ["About", "Blog", "Careers", "Press"],
   Legal: ["Privacy Policy", "Terms of Service", "Compliance", "Cookies"],
 };
@@ -19,7 +19,7 @@ export function Footer() {
               <Image src="/logo.png" alt="NeoFace Logo" width={200} height={60} className="h-12 w-auto object-contain" />
             </Link>
             <p className="text-[13px] text-[rgba(255,255,255,0.3)] leading-[1.6] max-w-[200px]">
-              Biometric Payment Infrastructure for the next generation of commerce.
+              Biometric Authentication Infrastructure for the next generation of apps.
             </p>
           </div>
 
@@ -54,7 +54,7 @@ export function Footer() {
           <div className="flex items-center gap-5">
             <div className="flex items-center gap-1.5 text-[11px] text-[rgba(255,255,255,0.22)]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#34d399] animate-pulse" />
-              Payment API: Operational
+              Auth API: Operational
             </div>
             <span className="text-[11px] text-[rgba(255,255,255,0.18)] font-mono">v1.0.0</span>
           </div>

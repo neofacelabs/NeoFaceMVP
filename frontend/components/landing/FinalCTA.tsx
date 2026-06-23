@@ -58,7 +58,7 @@ export function FinalCTA() {
               <circle cx="18" cy="18" r="2"  fill="rgba(0,229,168,0.9)"/>
             </svg>
           </div>
-          <div className="tag tag-accent inline-flex">The future of payments</div>
+          <div className="tag tag-accent inline-flex">The future of authentication</div>
         </motion.div>
 
         {/* Background Grid Visualization */}
@@ -95,7 +95,7 @@ export function FinalCTA() {
             className="text-[clamp(3.5rem,7vw,7.5rem)] font-bold tracking-tighter leading-none text-gradient-accent"
             style={{ letterSpacing: "-0.045em" }}
           >
-            Of Payments.
+            Of Auth.
           </motion.h2>
         </div>
 
@@ -106,9 +106,9 @@ export function FinalCTA() {
           transition={{ duration: 0.7, delay: 0.35 }}
           className="text-[18px] md:text-[22px] text-[rgba(255,255,255,0.40)] max-w-2xl mx-auto leading-[1.65] mb-12 relative z-10"
         >
-          NeoFace is creating the biometric payment layer for the next generation of commerce.
+          NeoFace is building the biometric identity layer for the next generation of apps.
           Face. Iris. Fingerprint.
-          <span className="text-white"> One identity. Infinite transactions.</span>
+          <span className="text-white"> One API. Infinite possibilities.</span>
         </motion.p>
 
         {/* CTAs */}
@@ -122,20 +122,20 @@ export function FinalCTA() {
             <motion.button
               whileHover={{ scale: 1.04, boxShadow: "0 0 52px rgba(0,229,168,0.22)" }}
               whileTap={{ scale: 0.97 }}
-              className="btn-white text-[15px] font-semibold px-10 py-4"
+              className="text-[15px] font-semibold px-10 py-4 rounded-full bg-[#00E5A8] text-black flex items-center gap-2"
             >
-              Join The Waitlist
+              Get API Key
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </motion.button>
           </Link>
-          <Link href="#developers">
+          <Link href="/pricing">
             <motion.button
               whileHover={{ scale: 1.02 }}
               className="btn-ghost px-8 py-4 text-[15px]"
             >
-              Book A Demo
+              View Pricing
             </motion.button>
           </Link>
         </motion.div>
@@ -149,11 +149,11 @@ export function FinalCTA() {
         >
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#00E5A8] animate-pulse" />
-            Payment API: Live
+            Auth API: Live
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#00C2FF] animate-pulse" />
-            Avg: 87ms auth
+            Avg: 61ms verify
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#00E5A8] animate-pulse" />
