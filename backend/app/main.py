@@ -92,8 +92,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await init_db()
 
     # Model verification check
+    # Only runs when STRICT_MODEL_VERIFICATION=true.
+    # When false (default in production without bundled models), startup
+    # continues with a warning — models lazy-load or fall back to heuristics.
     import os
-    if settings.STRICT_MODEL_VERIFICATION or settings.ENVIRONMENT in ("production", "staging"):
+    if settings.STRICT_MODEL_VERIFICATION:
         required_models = [
             settings.ANTI_SPOOF_MODEL_PATH,
             settings.MINIFASNET_V1_PATH,
@@ -104,15 +107,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             settings.EFFICIENTNET_DEEPFAKE_PATH,
             settings.XCEPTIONNET_DEEPFAKE_PATH,
         ]
-        # Resolve paths to check existence
         missing = [p for p in required_models if p and not os.path.exists(p)]
         if missing:
             msg = f"Model verification failed. Missing weights: {missing}"
-            if settings.ENVIRONMENT in ("production", "staging"):
-                logger.error(f"CRITICAL: {msg}")
-                raise RuntimeError(msg)
-            else:
-                logger.warning(f"DEV WARNING: {msg}. Using fallback heuristics.")
+            logger.error(f"CRITICAL: {msg}")
+            raise RuntimeError(msg)
+    else:
+        # Soft check — log which models are missing but never crash
+        required_models = [
+            settings.ANTI_SPOOF_MODEL_PATH,
+            settings.MINIFASNET_V1_PATH,
+            settings.MINIFASNET_V2_PATH,
+            settings.EMOTION_MODEL_PATH,
+            settings.MIDAS_SMALL_PATH,
+            settings.DPT_HYBRID_PATH,
+            settings.EFFICIENTNET_DEEPFAKE_PATH,
+            settings.XCEPTIONNET_DEEPFAKE_PATH,
+        ]
+        missing = [p for p in required_models if p and not os.path.exists(p)]
+        if missing:
+            logger.warning(
+                f"Model weights not found (non-fatal, STRICT_MODEL_VERIFICATION=false): {missing}. "
+                "API endpoints requiring these models will use fallback heuristics."
+            )
 
     # Bootstrap admin user
     await bootstrap_admin()
