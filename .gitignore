@@ -56,8 +56,8 @@ backend/models/*.pt
 backend/models/*.pth
 backend/models/*.bin
 
-# Root-level models dir (legacy)
-models/
+# Root-level models dir (legacy ML weights cache — NOT the Python package)
+/models/
 
 # macOS
 .DS_Store
