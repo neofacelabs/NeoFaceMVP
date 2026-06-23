@@ -3,6 +3,29 @@ Alembic Migration Environment
 Configured for async SQLAlchemy with auto-migration support.
 """
 
+import os
+import sys
+from pathlib import Path
+
+# ── Ensure /app (or the project root) is on sys.path ─────────────────────────
+# This makes `from app.xxx import yyy` work regardless of how alembic is
+# invoked and regardless of whether PYTHONPATH is set correctly.
+_HERE = Path(__file__).resolve()
+
+# Walk up until we find the 'app' package directory
+for _candidate in [_HERE.parent.parent, Path("/app")]:
+    if (_candidate / "app" / "__init__.py").exists():
+        _app_root = str(_candidate)
+        if _app_root not in sys.path:
+            sys.path.insert(0, _app_root)
+        break
+
+# Also honour PYTHONPATH entries (e.g. when set by docker-entrypoint.sh)
+_pythonpath = os.environ.get("PYTHONPATH", "")
+for _p in _pythonpath.split(os.pathsep):
+    if _p and _p not in sys.path:
+        sys.path.insert(0, _p)
+
 from logging.config import fileConfig
 
 from alembic import context
