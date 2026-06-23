@@ -98,9 +98,11 @@ if db_url.startswith("postgresql://"):
 safe_url = db_url.replace("%", "%%")
 config.set_main_option("sqlalchemy.url", safe_url)
 
-# Log the host we're connecting to (never log passwords)
+# Log the host and username we're connecting with (never log passwords)
 _db_host = db_url.split("@")[-1].split("/")[0] if "@" in db_url else "unknown"
+_db_user = db_url.split("://")[-1].split(":")[0] if "://" in db_url else "unknown"
 print(f"[alembic/env.py] Connecting to DB host: {_db_host}", file=sys.stderr)
+print(f"[alembic/env.py] Connecting as user:    {_db_user}", file=sys.stderr)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
