@@ -27,8 +27,19 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.core.config import settings
 from app.core.database import Base
 
-# Import all models so Alembic can detect changes
-from app.models import *  # noqa: F401, F403
+# Import all models so Alembic can detect table changes.
+# Wrap in a try/except so the REAL error (not "No module named app.models")
+# is printed if any sub-import fails.
+try:
+    from app.models import *  # noqa: F401, F403
+except Exception as _model_import_err:
+    import traceback
+    print("=" * 72, file=sys.stderr)
+    print("[alembic/env.py] FATAL: failed to import app.models", file=sys.stderr)
+    print("Real cause:", file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
+    print("=" * 72, file=sys.stderr)
+    raise
 
 config = context.config
 

@@ -94,32 +94,64 @@ def _build_engine() -> AsyncEngine:
     return engine
 
 
-# Module-level engine and session factory — created once at import time.
-engine: AsyncEngine = _build_engine()
+# Module-level engine and session factory — lazily initialized on first use.
+# Lazy init prevents import-time crashes during Alembic migrations, which only
+# need Base.metadata and don't require an actual database connection.
+_engine: AsyncEngine | None = None
+_session_factory: async_sessionmaker[AsyncSession] | None = None
 
-AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,   # Keep ORM objects usable after commit
-    autocommit=False,
-    autoflush=False,
-)
+
+def _get_engine() -> AsyncEngine:
+    """Return the singleton async engine, creating it on first call."""
+    global _engine
+    if _engine is None:
+        _engine = _build_engine()
+    return _engine
+
+
+def _get_session_factory() -> async_sessionmaker[AsyncSession]:
+    """Return the singleton session factory, creating it on first call."""
+    global _session_factory
+    if _session_factory is None:
+        _session_factory = async_sessionmaker(
+            bind=_get_engine(),
+            class_=AsyncSession,
+            expire_on_commit=False,
+            autocommit=False,
+            autoflush=False,
+        )
+    return _session_factory
+
+
+# Convenience module-level aliases — these are properties so they stay lazy
+class _LazyEngine:
+    """Descriptor that forwards attribute access to the real engine."""
+    def __getattr__(self, name: str):
+        return getattr(_get_engine(), name)
+    def begin(self):
+        return _get_engine().begin()
+    async def dispose(self):
+        return await _get_engine().dispose()
+
+
+engine: AsyncEngine = _LazyEngine()  # type: ignore[assignment]
+
+
+class AsyncSessionLocal:
+    """Callable that returns an AsyncSession from the lazy session factory."""
+    def __new__(cls, **kwargs):
+        return _get_session_factory()(**kwargs)
+
+    def __class_getitem__(cls, item):
+        return _get_session_factory()
 
 
 # ── FastAPI dependency ─────────────────────────────────────────────────────────
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     FastAPI dependency — yields a transactional async database session.
-
-    Automatically commits on success or rolls back on any exception.
-    Always closes the session (returns connection to pool) in the finally block.
-
-    Usage:
-        @router.get("/resource")
-        async def endpoint(db: AsyncSession = Depends(get_db)):
-            result = await db.execute(select(MyModel))
     """
-    async with AsyncSessionLocal() as session:
+    async with _get_session_factory()() as session:
         try:
             yield session
             await session.commit()
@@ -135,12 +167,8 @@ async def init_db() -> None:
     """
     Create all tables on startup (development / first-run convenience).
     In production always use Alembic migrations instead.
-
-    Also enables the PostgreSQL extensions required by NeoFace:
-      uuid-ossp  — server-side UUID generation (gen_random_uuid fallback)
-      pgcrypto   — used by some Supabase auth functions
     """
-    async with engine.begin() as conn:
+    async with _get_engine().begin() as conn:
         await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'))
         await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "pgcrypto"'))
         await conn.run_sync(Base.metadata.create_all)
@@ -150,21 +178,17 @@ async def init_db() -> None:
 async def close_db() -> None:
     """
     Dispose the connection pool on application shutdown.
-    Called from the FastAPI lifespan context manager.
     """
-    await engine.dispose()
+    await _get_engine().dispose()
     logger.info("database.close_db: connection pool disposed")
 
 
 async def check_db_health() -> bool:
     """
     Lightweight health probe — verifies database connectivity.
-
-    Returns True if a round-trip SELECT 1 succeeds, False otherwise.
-    Used by the /health endpoint and startup retry logic.
     """
     try:
-        async with AsyncSessionLocal() as session:
+        async with _get_session_factory()() as session:
             await session.execute(text("SELECT 1"))
         return True
     except SQLAlchemyError as exc:
