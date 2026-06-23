@@ -55,13 +55,34 @@ from app.repositories.credential_repository import CredentialRepository
 
 router = APIRouter(prefix="/webauthn", tags=["WebAuthn"])
 
-# ── Relying Party config (read from env so production works correctly) ─────────
-RP_ID = settings.WEBAUTHN_RP_ID
+# ── Relying Party helpers (dynamic from browser Origin header) ─────────────────
+# WebAuthn requires rp_id == hostname of the page serving the app, NOT the API.
+# By deriving it from the Origin header, this works in every environment:
+#   localhost:3000 → rp_id="localhost"
+#   neoface.vercel.app → rp_id="neoface.vercel.app"
+# Falls back to WEBAUTHN_RP_ID env var if no Origin header is present.
+
+def _rp_id(request: Request) -> str:
+    """Return the hostname from the browser's Origin header (WebAuthn RP ID)."""
+    from urllib.parse import urlparse
+    origin = request.headers.get("origin", "")
+    if origin:
+        parsed = urlparse(origin)
+        return parsed.hostname or settings.WEBAUTHN_RP_ID
+    return settings.WEBAUTHN_RP_ID
+
+
+def _expected_origin(request: Request) -> str:
+    """Return the full Origin URL for WebAuthn verification."""
+    origin = request.headers.get("origin", "")
+    return origin or settings.WEBAUTHN_EXPECTED_ORIGIN
+
+
 RP_NAME = "NeoFace"
-EXPECTED_ORIGIN = settings.WEBAUTHN_EXPECTED_ORIGIN
 
 # ── In-memory challenge store (use Redis in production) ───────────────────────
 _challenges: dict[str, bytes] = {}
+_challenge_origins: dict[str, str] = {}  # key → origin URL used at begin
 _payment_challenges: dict[str, dict] = {}
 
 
@@ -128,6 +149,9 @@ async def register_begin(
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
+    rp_id = _rp_id(request)
+    origin = _expected_origin(request)
+
     repo = CredentialRepository(db)
     existing = await repo.list_by_user(current_user.user_uuid)
     exclude_credentials = [
@@ -136,7 +160,7 @@ async def register_begin(
     ]
 
     options = generate_registration_options(
-        rp_id=RP_ID,
+        rp_id=rp_id,
         rp_name=RP_NAME,
         user_id=str(current_user.user_uuid).encode(),
         user_name=current_user.email,
@@ -148,7 +172,9 @@ async def register_begin(
         exclude_credentials=exclude_credentials,
     )
 
-    _challenges[_challenge_key(current_user.user_uuid, "reg")] = options.challenge
+    key = _challenge_key(current_user.user_uuid, "reg")
+    _challenges[key] = options.challenge
+    _challenge_origins[key] = origin  # remember origin for verify step
     return JSONResponse(content=json.loads(options_to_json(options)))
 
 
@@ -164,6 +190,11 @@ async def register_complete(
     if not expected_challenge:
         raise HTTPException(400, "No active registration challenge. Call /register/begin first.")
 
+    # Use the origin that was recorded at /begin so rp_id & origin stay consistent
+    saved_origin = _challenge_origins.pop(key, None) or _expected_origin(request)
+    from urllib.parse import urlparse
+    saved_rp_id = urlparse(saved_origin).hostname or settings.WEBAUTHN_RP_ID
+
     try:
         credential = RegistrationCredential(
             id=body.credential_id,
@@ -177,8 +208,8 @@ async def register_complete(
         verification = verify_registration_response(
             credential=credential,
             expected_challenge=expected_challenge,
-            expected_rp_id=RP_ID,
-            expected_origin=EXPECTED_ORIGIN,
+            expected_rp_id=saved_rp_id,
+            expected_origin=saved_origin,
             require_user_verification=True,
         )
     except Exception as exc:
@@ -215,9 +246,13 @@ async def register_complete(
 
 @router.post("/authenticate/begin")
 async def authenticate_begin(
+    request: Request,
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
+    rp_id = _rp_id(request)
+    origin = _expected_origin(request)
+
     repo = CredentialRepository(db)
     credentials = await repo.list_by_user(current_user.user_uuid)
     active = [c for c in credentials if c.is_active]
@@ -226,17 +261,20 @@ async def authenticate_begin(
 
     allow_credentials = [PublicKeyCredentialDescriptor(id=c.credential_id) for c in active]
     options = generate_authentication_options(
-        rp_id=RP_ID,
+        rp_id=rp_id,
         allow_credentials=allow_credentials,
         user_verification=UserVerificationRequirement.REQUIRED,
     )
-    _challenges[_challenge_key(current_user.user_uuid, "auth")] = options.challenge
+    key = _challenge_key(current_user.user_uuid, "auth")
+    _challenges[key] = options.challenge
+    _challenge_origins[key] = origin
     return JSONResponse(content=json.loads(options_to_json(options)))
 
 
 @router.post("/authenticate/complete")
 async def authenticate_complete(
     body: AuthenticateCompleteRequest,
+    request: Request,
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -244,6 +282,10 @@ async def authenticate_complete(
     expected_challenge = _challenges.get(key)
     if not expected_challenge:
         raise HTTPException(400, "No active authentication challenge.")
+
+    saved_origin = _challenge_origins.pop(key, None) or _expected_origin(request)
+    from urllib.parse import urlparse
+    saved_rp_id = urlparse(saved_origin).hostname or settings.WEBAUTHN_RP_ID
 
     raw_cred_id = base64url_to_bytes(body.credential_id)
     repo = CredentialRepository(db)
@@ -268,8 +310,8 @@ async def authenticate_complete(
         verification = verify_authentication_response(
             credential=credential,
             expected_challenge=expected_challenge,
-            expected_rp_id=RP_ID,
-            expected_origin=EXPECTED_ORIGIN,
+            expected_rp_id=saved_rp_id,
+            expected_origin=saved_origin,
             credential_public_key=stored.public_key,
             credential_current_sign_count=stored.sign_count,
             require_user_verification=True,
