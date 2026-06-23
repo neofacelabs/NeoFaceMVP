@@ -18,6 +18,8 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
+# Matplotlib cache dir — /home/neoface is not writable in the Render container
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 
 import socket as _socket
 # ── Force IPv4-only DNS resolution ────────────────────────────────────────────
@@ -115,35 +117,30 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Bootstrap admin user
     await bootstrap_admin()
 
-    # Pre-load InsightFace model (blocking ~5-10s, done once at startup)
-    logger.info("Loading face recognition models...")
-    detector = get_face_detector()
-    detector.initialize()
-    logger.info("Face recognition models ready")
-
-    # Pre-load MiniFASNet anti-spoofing model (non-blocking fallback if absent)
-    logger.info("Loading anti-spoofing model...")
-    from app.services.anti_spoof_service import AntiSpoofService
-    anti_spoof = AntiSpoofService.get_instance()
-    anti_spoof.initialize()
-    logger.info("Anti-spoofing model ready")
-
-    # ── Trust Engine v2 — Initialize all services ─────────────────────────────
-    logger.info("Initializing Trust Engine services...")
-
-    from app.services.passive_liveness_service import PassiveLivenessService
-    PassiveLivenessService.get_instance().initialize()
-
-    from app.services.emotion_service import EmotionService
-    EmotionService.get_instance().initialize()
-
-    from app.services.depth_estimation_service import DepthEstimationService
-    DepthEstimationService.get_instance().initialize()
-
-    from app.services.deepfake_service import DeepfakeService
-    DeepfakeService.get_instance().initialize()
-
-    logger.info("Trust Engine services ready")
+    # ── ML Model Loading ──────────────────────────────────────────────────────
+    # Models are LAZY-LOADED by default (loaded on first request).
+    # Set PRELOAD_MODELS=true to warm them up at startup (requires ≥4GB RAM).
+    preload = os.environ.get("PRELOAD_MODELS", "false").lower() == "true"
+    if preload:
+        logger.info("PRELOAD_MODELS=true — warming up ML models at startup...")
+        try:
+            from app.services.anti_spoof_service import AntiSpoofService
+            from app.services.deepfake_service import DeepfakeService
+            from app.services.depth_estimation_service import DepthEstimationService
+            from app.services.emotion_service import EmotionService
+            from app.services.passive_liveness_service import PassiveLivenessService
+            detector = get_face_detector()
+            detector.initialize()
+            AntiSpoofService.get_instance().initialize()
+            PassiveLivenessService.get_instance().initialize()
+            EmotionService.get_instance().initialize()
+            DepthEstimationService.get_instance().initialize()
+            DeepfakeService.get_instance().initialize()
+            logger.info("ML model warmup complete")
+        except Exception as e:
+            logger.warning(f"ML model warmup failed (non-fatal, will lazy-load): {e}")
+    else:
+        logger.info("ML models will lazy-load on first request (set PRELOAD_MODELS=true to pre-warm)")
 
     logger.info(f"{settings.APP_NAME} is ready to accept requests")
     yield

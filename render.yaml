@@ -6,7 +6,7 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     region: oregon
-    plan: standard  # 2 CPU / 4 GB RAM — required for InsightFace model loading
+    plan: standard  # Minimum 2GB RAM required; ML models lazy-load on first request
 
     healthCheckPath: /health
 
@@ -55,6 +55,13 @@ services:
         value: "false"    # Allow startup without ONNX weights
       - key: USE_LIVENESS_PIPELINE
         value: "true"
+      # ML models lazy-load on first request to avoid OOM at startup.
+      # Set to true only on instances with ≥4GB RAM.
+      - key: PRELOAD_MODELS
+        value: "false"
+      # Fix matplotlib permission error in non-root container
+      - key: MPLCONFIGDIR
+        value: /tmp/matplotlib
 
       # ── Redis (add Render Redis add-on and replace URL) ───────────────────────
       - key: REDIS_URL
