@@ -4,6 +4,7 @@ Configured for async SQLAlchemy with auto-migration support.
 """
 
 import os
+import socket
 import sys
 
 # ── CRITICAL: Ensure /app is on sys.path BEFORE any app.* imports ────────────
@@ -17,6 +18,26 @@ if "/app" not in sys.path:
 for _p in os.environ.get("PYTHONPATH", "").split(os.pathsep):
     if _p and _p not in sys.path:
         sys.path.insert(0, _p)
+
+# ── Force IPv4-only DNS resolution ────────────────────────────────────────────
+# Render's Oregon instances cannot reach Supabase over IPv6 — the hostname
+# resolves to an IPv6 address but "Network is unreachable" errors occur.
+# Patching getaddrinfo to return only AF_INET (IPv4) records fixes this without
+# needing a different DATABASE_URL or Supabase plan upgrade.
+_orig_getaddrinfo = socket.getaddrinfo
+
+def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    """Return only IPv4 results; fall back to all families if IPv4 returns nothing."""
+    try:
+        results = _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+        if results:
+            return results
+    except socket.gaierror:
+        pass
+    return _orig_getaddrinfo(host, port, family, type, proto, flags)
+
+socket.getaddrinfo = _force_ipv4_getaddrinfo
+print("[alembic/env.py] IPv4-only DNS patched (Render IPv6 workaround)", file=sys.stderr)
 
 from logging.config import fileConfig
 

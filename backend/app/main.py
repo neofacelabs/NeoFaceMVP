@@ -19,6 +19,22 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
+import socket as _socket
+# ── Force IPv4-only DNS resolution ────────────────────────────────────────────
+# Render's cloud instances cannot reach Supabase over IPv6 (Network unreachable).
+# Patching getaddrinfo at startup ensures asyncpg and all other network clients
+# always resolve to IPv4 addresses only.
+_orig_getaddrinfo = _socket.getaddrinfo
+def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    try:
+        results = _orig_getaddrinfo(host, port, _socket.AF_INET, type, proto, flags)
+        if results:
+            return results
+    except _socket.gaierror:
+        pass
+    return _orig_getaddrinfo(host, port, family, type, proto, flags)
+_socket.getaddrinfo = _force_ipv4_getaddrinfo
+
 import time
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
