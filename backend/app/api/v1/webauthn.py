@@ -401,10 +401,14 @@ async def toggle_payment_signing(
 @router.post("/payment/begin")
 async def payment_begin(
     body: WebAuthnPaymentBeginRequest,
+    request: Request,
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Risk-tiered WebAuthn payment challenge."""
+    rp_id = _rp_id(request)
+    origin = _expected_origin(request)
+
     amount_inr = body.amount if body.currency == "INR" else body.amount * 84
     if amount_inr < 1000:
         risk_tier, required_factors = "low", ["fingerprint"]
@@ -421,7 +425,7 @@ async def payment_begin(
 
     allow_credentials = [PublicKeyCredentialDescriptor(id=c.credential_id) for c in active_payment]
     options = generate_authentication_options(
-        rp_id=RP_ID,
+        rp_id=rp_id,
         allow_credentials=allow_credentials,
         user_verification=UserVerificationRequirement.REQUIRED,
     )
@@ -435,6 +439,8 @@ async def payment_begin(
         "merchant_name": body.merchant_name,
         "risk_tier": risk_tier,
         "required_factors": required_factors,
+        "rp_id": rp_id,
+        "origin": origin,
     }
 
     opts_dict = json.loads(options_to_json(options))
@@ -445,6 +451,7 @@ async def payment_begin(
         "amount": body.amount,
         "currency": body.currency,
         "merchant_name": body.merchant_name,
+        "rpId": rp_id,
     })
     return opts_dict
 
@@ -484,8 +491,8 @@ async def payment_complete(
         verification = verify_authentication_response(
             credential=credential,
             expected_challenge=ctx["challenge"],
-            expected_rp_id=RP_ID,
-            expected_origin=EXPECTED_ORIGIN,
+            expected_rp_id=ctx["rp_id"],
+            expected_origin=ctx["origin"],
             credential_public_key=stored.public_key,
             credential_current_sign_count=stored.sign_count,
             require_user_verification=True,

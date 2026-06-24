@@ -22,8 +22,10 @@ from app.utils.storage import StorageService
 
 @lru_cache(maxsize=1)
 def get_face_detector() -> FaceDetectorService:
-    """Return global FaceDetectorService singleton."""
-    return FaceDetectorService.get_instance()
+    """Return global FaceDetectorService singleton, initializing it on first call."""
+    instance = FaceDetectorService.get_instance()
+    instance.initialize()  # No-op if already initialized; lazy-loads the model
+    return instance
 
 
 @lru_cache(maxsize=1)
