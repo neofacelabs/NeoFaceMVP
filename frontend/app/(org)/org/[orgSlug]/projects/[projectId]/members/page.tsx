@@ -40,25 +40,142 @@ import { cn } from "@/lib/utils";
 
 type Tab = "students" | "faculty" | "staff" | "visitors";
 
+import { apiClient } from "@/lib/api";
+import { toast } from "sonner";
+
 export default function MembersPage({ params }: { params: Promise<{ orgSlug: string; projectId: string }> }) {
   const { orgSlug, projectId } = React.use(params);
   const [activeTab, setActiveTab] = React.useState<Tab>("students");
   const [search, setSearch] = React.useState("");
+  const [identities, setIdentities] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
 
-  const members = activeTab === "students" ? mockStudents : activeTab === "faculty" ? mockFaculty : [];
+  const fetchIdentities = React.useCallback(async () => {
+    try {
+      const { data } = await apiClient.get(`/identities?application_id=${projectId}&page=1&page_size=100`);
+      let list = data.items || [];
+
+      // Auto-seeding helper if DB is completely empty for this project
+      if (list.length === 0) {
+        toast.info("Initializing project members database...");
+        
+        // Seed 4 students
+        const studentsToSeed = mockStudents.slice(0, 4).map(s => ({
+          type: "student",
+          name: s.name,
+          email: s.email,
+          roll_number: s.roll_number,
+          department: s.department,
+          course: s.course,
+          semester: s.semester,
+          status: s.status,
+          face_status: s.face_status,
+          fingerprint_status: s.fingerprint_status,
+          last_auth_at: s.last_auth_at,
+          enrolled_at: s.enrolled_at,
+        }));
+
+        // Seed 2 faculty
+        const facultyToSeed = mockFaculty.slice(0, 2).map(f => ({
+          type: "faculty",
+          name: f.name,
+          email: f.email,
+          employee_id: f.employee_id,
+          department: f.department,
+          designation: f.designation,
+          status: f.status,
+          face_status: f.face_status,
+          fingerprint_status: f.fingerprint_status,
+          last_auth_at: f.last_auth_at,
+          enrolled_at: f.enrolled_at,
+        }));
+
+        const allSeeds = [...studentsToSeed, ...facultyToSeed];
+        
+        // Sequential creation
+        for (const seed of allSeeds) {
+          await apiClient.post("/identities", {
+            application_id: projectId,
+            external_user_id: JSON.stringify(seed),
+          });
+        }
+
+        // Re-fetch
+        const refetch = await apiClient.get(`/identities?application_id=${projectId}&page=1&page_size=100`);
+        list = refetch.data.items || [];
+      }
+
+      // Map backend Identity models back to UI components
+      const mapped = list.map((item: any) => {
+        let details: any = {};
+        try {
+          details = JSON.parse(item.external_user_id);
+        } catch {
+          // fallback parser for unstructured strings
+          details = {
+            name: item.external_user_id,
+            email: `${item.external_user_id.toLowerCase().replace(/\s+/g, "")}@iitd.ac.in`,
+            type: item.external_user_id.toLowerCase().includes("prof") ? "faculty" : "student",
+            department: "Computer Science",
+          };
+        }
+
+        return {
+          id: item.id,
+          name: details.name || "Unknown Member",
+          email: details.email || "",
+          type: details.type || "student",
+          roll_number: details.roll_number,
+          employee_id: details.employee_id,
+          department: details.department || "General",
+          course: details.course || "B.Tech",
+          semester: details.semester || 1,
+          designation: details.designation || "Assistant Professor",
+          face_status: item.enrollment_status === "enrolled" ? "enrolled" : item.enrollment_status,
+          fingerprint_status: item.enrollment_status === "enrolled" ? "enrolled" : "not_enrolled",
+          status: details.status || "active",
+          last_auth_at: details.last_auth_at,
+          enrolled_at: item.created_at,
+        };
+      });
+
+      setIdentities(mapped);
+    } catch (err) {
+      console.error("Failed to load project members:", err);
+      toast.error("Failed to fetch project members");
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId]);
+
+  React.useEffect(() => {
+    fetchIdentities();
+  }, [fetchIdentities]);
+
+  const handleDeleteMember = async (memberId: string) => {
+    try {
+      await apiClient.delete(`/identities/${memberId}`);
+      toast.success("Member removed successfully");
+      fetchIdentities();
+    } catch (err) {
+      toast.error("Failed to delete member");
+    }
+  };
+
+  const members = identities.filter((m) => m.type === (activeTab === "students" ? "student" : "faculty"));
   const filtered = members.filter((m) =>
     search
       ? m.name.toLowerCase().includes(search.toLowerCase()) ||
-        (m.student_id ?? m.employee_id ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (m.roll_number ?? m.employee_id ?? "").toLowerCase().includes(search.toLowerCase()) ||
         (m.department ?? "").toLowerCase().includes(search.toLowerCase())
       : true
   );
 
   const tabs: { id: Tab; label: string; count: number }[] = [
-    { id: "students", label: "Students", count: 10840 },
-    { id: "faculty", label: "Faculty", count: 342 },
-    { id: "staff", label: "Staff", count: 280 },
-    { id: "visitors", label: "Visitors", count: 12 },
+    { id: "students", label: "Students", count: identities.filter(i => i.type === "student").length },
+    { id: "faculty", label: "Faculty", count: identities.filter(i => i.type === "faculty").length },
+    { id: "staff", label: "Staff", count: 0 },
+    { id: "visitors", label: "Visitors", count: 0 },
   ];
 
   return (
@@ -207,7 +324,10 @@ export default function MembersPage({ params }: { params: Promise<{ orgSlug: str
                               Suspend
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/[0.06]" />
-                            <DropdownMenuItem className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-[#f87171]/60 hover:bg-[#f87171]/[0.06] hover:text-[#f87171] cursor-pointer">
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteMember(member.id)}
+                              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-[#f87171]/60 hover:bg-[#f87171]/[0.06] hover:text-[#f87171] cursor-pointer"
+                            >
                               <Trash2 className="h-3.5 w-3.5" />
                               Delete
                             </DropdownMenuItem>

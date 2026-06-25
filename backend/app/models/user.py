@@ -163,12 +163,6 @@ class User(Base):
         lazy="select",
         foreign_keys="AuditLog.actor_id",
     )
-    transactions: Mapped[list["Transaction"]] = relationship(  # noqa: F821
-        "Transaction",
-        back_populates="user",
-        cascade="all, delete-orphan",
-        lazy="select",
-    )
     biometric_credentials: Mapped[list["BiometricCredential"]] = relationship(  # noqa: F821
         "BiometricCredential",
         back_populates="user",

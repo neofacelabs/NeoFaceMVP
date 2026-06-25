@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { ChartCard } from "@/components/dashboard/ChartCard";
@@ -19,37 +19,74 @@ import {
   QrCode,
   Download,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-const mockMemberProfile = {
-  name: "Aryan Mehta",
-  email: "aryan.mehta@iitd.ac.in",
-  roll_number: "2022CS10134",
-  department: "Computer Science & Engineering",
-  course: "B.Tech",
-  semester: 4,
-  face_status: "enrolled" as const,
-  fingerprint_status: "enrolled" as const,
-  status: "active" as const,
-  enrolled_at: "2024-01-20T10:00:00Z",
-  last_auth_at: new Date(Date.now() - 20 * 60000).toISOString(),
-  project: "IIT Delhi Campus",
-  org: "IIT Delhi",
-};
-
-const recentAuths = [
-  { id: "1", result: "success" as const, method: "face", zone: "Main Gate", timestamp: new Date(Date.now() - 20 * 60000).toISOString(), confidence: 98.4, liveness: 99.1 },
-  { id: "2", result: "success" as const, method: "face", zone: "Library", timestamp: new Date(Date.now() - 4 * 3600000).toISOString(), confidence: 97.8, liveness: 98.6 },
-  { id: "3", result: "success" as const, method: "face", zone: "Lab 204", timestamp: new Date(Date.now() - 6 * 3600000).toISOString(), confidence: 99.1, liveness: 99.4 },
-  { id: "4", result: "success" as const, method: "fingerprint", zone: "Hostel", timestamp: new Date(Date.now() - 22 * 3600000).toISOString(), confidence: 98.9, liveness: undefined },
-  { id: "5", result: "failed" as const, method: "face", zone: "Admin Block", timestamp: new Date(Date.now() - 26 * 3600000).toISOString(), confidence: 62.1, liveness: 88.2 },
-];
+import { authApi, biometricsApi, dashboardApi } from "@/lib/api";
 
 export default function MemberIdentityPage() {
-  const m = mockMemberProfile;
+  const [profile, setProfile] = useState<any>(null);
+  const [bioStatus, setBioStatus] = useState<any>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [meRes, bioRes, logsRes] = await Promise.all([
+          authApi.me(),
+          biometricsApi.getStatus(),
+          dashboardApi.getLogs(1, 100).catch(() => ({ data: { logs: [] } })),
+        ]);
+        setProfile(meRes.data);
+        setBioStatus(bioRes.data);
+        const allLogs = logsRes.data?.logs || [];
+        const userLogs = allLogs.filter((l: any) => l.user_id === meRes.data.id).slice(0, 5);
+        setLogs(userLogs);
+      } catch (err) {
+        console.error("Failed to load member profile:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#00E5A8]" />
+      </div>
+    );
+  }
+
+  const m = {
+    id: profile?.id || "",
+    name: profile?.name || "Member User",
+    email: profile?.email || "",
+    role: profile?.role || "user",
+    status: (profile?.is_active ? "active" : "suspended") as "active" | "suspended",
+    created_at: profile?.created_at || new Date().toISOString(),
+    phone: profile?.phone || "Not linked",
+    face_status: (bioStatus?.face?.enrolled ? "enrolled" : "pending") as "enrolled" | "pending",
+    face_count: bioStatus?.face?.embedding_count || 0,
+    fingerprint_status: (bioStatus?.fingerprint?.enrolled ? "enrolled" : "pending") as "enrolled" | "pending",
+    fingerprint_count: bioStatus?.fingerprint?.template_count || 0,
+    enrolled_at: profile?.created_at || new Date().toISOString(),
+  };
+
+  const recentAuthsMapped = logs.map((log: any) => ({
+    id: log.id,
+    result: (log.authentication_result ? "success" : "failed") as "success" | "failed",
+    method: log.confidence_score ? "face" : "fingerprint",
+    zone: log.ip_address || "Web Portal",
+    timestamp: log.timestamp,
+    confidence: log.confidence_score ? log.confidence_score * 100 : undefined,
+    liveness: log.liveness_score ? log.liveness_score * 100 : undefined,
+  }));
+
 
   return (
     <div className="space-y-6">
@@ -93,11 +130,10 @@ export default function MemberIdentityPage() {
           {/* Details grid */}
           <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
             {[
-              { label: "Roll No.", value: m.roll_number, mono: true },
-              { label: "Department", value: m.department },
-              { label: "Course", value: `${m.course} · Sem ${m.semester}` },
-              { label: "Organization", value: m.org },
-              { label: "Project", value: m.project },
+              { label: "User ID", value: m.id.slice(0, 8) + "...", mono: true },
+              { label: "Role", value: m.role.toUpperCase(), mono: true },
+              { label: "Phone", value: m.phone },
+              { label: "Enrolled", value: format(new Date(m.created_at), "MMM d, yyyy") },
             ].map((row) => (
               <div key={row.label} className="flex items-start justify-between gap-2">
                 <span className="text-[11px] text-white/30">{row.label}</span>
@@ -131,14 +167,14 @@ export default function MemberIdentityPage() {
                   label: "Face Recognition",
                   status: m.face_status,
                   icon: Camera,
-                  description: "FaceNet v3.2 · 1 template enrolled",
+                  description: `ArcFace v1.0 · ${m.face_count} template(s) enrolled`,
                   enrolled: m.face_status === "enrolled",
                 },
                 {
                   label: "Fingerprint",
                   status: m.fingerprint_status,
                   icon: Fingerprint,
-                  description: "FingerprintNet v1.4 · 2 fingers enrolled",
+                  description: `ISO 19794-2 · ${m.fingerprint_count} template(s) enrolled`,
                   enrolled: m.fingerprint_status === "enrolled",
                 },
               ].map((bio) => {
@@ -183,44 +219,50 @@ export default function MemberIdentityPage() {
           {/* Recent auth events */}
           <ChartCard title="Recent Authentication" description="Your last 5 authentication events" index={1}>
             <div className="space-y-0">
-              {recentAuths.map((auth, i) => (
-                <motion.div
-                  key={auth.id}
-                  initial={{ opacity: 0, x: -6 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.06 }}
-                  className="flex items-center gap-3 border-b border-white/[0.04] py-3 last:border-0"
-                >
-                  <div className={cn("flex h-7 w-7 items-center justify-center rounded-md shrink-0", auth.result === "success" ? "bg-[#00E5A8]/8" : "bg-[#f87171]/8")}>
-                    {auth.result === "success" ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-[#00E5A8]" />
-                    ) : (
-                      <Lock className="h-3.5 w-3.5 text-[#f87171]" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[12px] font-medium text-white/80 capitalize">{auth.method}</span>
-                      <span className="text-[10px] text-white/25">·</span>
-                      <div className="flex items-center gap-1 text-[11px] text-white/40">
-                        <MapPin className="h-3 w-3" />
-                        {auth.zone}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      {auth.confidence && (
-                        <span className="text-[10.5px] text-white/30">Match: <span className={auth.confidence > 90 ? "text-[#00E5A8]/60" : "text-[#f87171]/60"}>{auth.confidence.toFixed(1)}%</span></span>
+              {recentAuthsMapped.length === 0 ? (
+                <div className="py-6 text-center text-[12px] text-white/30">
+                  No recent authentication logs found.
+                </div>
+              ) : (
+                recentAuthsMapped.map((auth, i) => (
+                  <motion.div
+                    key={auth.id}
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.06 }}
+                    className="flex items-center gap-3 border-b border-white/[0.04] py-3 last:border-0"
+                  >
+                    <div className={cn("flex h-7 w-7 items-center justify-center rounded-md shrink-0", auth.result === "success" ? "bg-[#00E5A8]/8" : "bg-[#f87171]/8")}>
+                      {auth.result === "success" ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-[#00E5A8]" />
+                      ) : (
+                        <Lock className="h-3.5 w-3.5 text-[#f87171]" />
                       )}
                     </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <StatusBadge variant="auth" status={auth.result} />
-                    <p className="mt-0.5 text-[10px] text-white/20">
-                      {formatDistanceToNow(new Date(auth.timestamp), { addSuffix: true })}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] font-medium text-white/80 capitalize">{auth.method}</span>
+                        <span className="text-[10px] text-white/25">·</span>
+                        <div className="flex items-center gap-1 text-[11px] text-white/40">
+                          <MapPin className="h-3 w-3" />
+                          {auth.zone}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        {auth.confidence && (
+                          <span className="text-[10.5px] text-white/30">Match: <span className={auth.confidence > 90 ? "text-[#00E5A8]/60" : "text-[#f87171]/60"}>{auth.confidence.toFixed(1)}%</span></span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <StatusBadge variant="auth" status={auth.result} />
+                      <p className="mt-0.5 text-[10px] text-white/20">
+                        {formatDistanceToNow(new Date(auth.timestamp), { addSuffix: true })}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))
+              )}
             </div>
           </ChartCard>
         </div>

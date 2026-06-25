@@ -229,6 +229,26 @@ async def delete_enrollment(
         .values(is_enrolled=False)
     )
 
+    # Revert matching Identity records in multitenant AaaS to "pending"
+    try:
+        from app.models.identity import Identity
+        from sqlalchemy import or_
+        await enrollment_service.db.execute(
+            update(Identity)
+            .where(
+                or_(
+                    Identity.external_user_id == user.email,
+                    Identity.external_user_id.like(f'%"{user.email}"%')
+                )
+            )
+            .values(
+                enrollment_status="pending",
+                face_embedding_id=None
+            )
+        )
+    except Exception as exc:
+        logger.warning("Failed to reset Identity status during admin delete enrollment", email=user.email, error=str(exc))
+
     logger.info(
         "Enrollment deleted by admin",
         user_id=str(user_id),

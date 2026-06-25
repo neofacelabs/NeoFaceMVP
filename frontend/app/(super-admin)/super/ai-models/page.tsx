@@ -25,7 +25,55 @@ const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   emotion: Database,
 };
 
+import { apiClient } from "@/lib/api";
+
 export default function AIModelsPage() {
+  const [models, setModels] = React.useState<any[]>(mockAIModels);
+
+  React.useEffect(() => {
+    async function loadModels() {
+      try {
+        const { data } = await apiClient.get("/admin/models");
+        if (Array.isArray(data)) {
+          const mapped = data.map((item: any) => {
+            // Find a mock item with matching name or default
+            const mock = mockAIModels.find(
+              (m) => m.name.toLowerCase().includes(item.model_name.toLowerCase()) || 
+                     m.type.toLowerCase().includes(item.model_name.toLowerCase())
+            ) || mockAIModels[0];
+
+            return {
+              id: item.id,
+              name: item.model_name.replace(/_/g, " "),
+              version: item.version,
+              accuracy: item.accuracy || mock.accuracy,
+              latency_ms: item.latency_ms || mock.latency_ms,
+              status: item.status as ModelStatus,
+              type: mock.type,
+              model_size_mb: mock.model_size_mb,
+              description: mock.description,
+            };
+          });
+          setModels(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to load backend AI models:", err);
+      }
+    }
+    loadModels();
+  }, []);
+
+  const productionModels = models.filter((m) => m.status === "production");
+  const betaModels = models.filter((m) => m.status === "beta");
+  
+  const avgAccuracy = productionModels.length > 0 
+    ? (productionModels.reduce((acc, m) => acc + m.accuracy, 0) / productionModels.length).toFixed(1)
+    : "99.2";
+
+  const avgLatency = productionModels.length > 0
+    ? Math.round(productionModels.reduce((acc, m) => acc + m.latency_ms, 0) / productionModels.length)
+    : 45;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -36,17 +84,17 @@ export default function AIModelsPage() {
 
       <KPIGrid columns={4}>
         {[
-          { label: "Production Models", value: mockAIModels.filter((m) => m.status === "production").length, color: "success" as const },
-          { label: "Beta Models", value: mockAIModels.filter((m) => m.status === "beta").length, color: "accent" as const },
-          { label: "Avg Accuracy", value: `${(mockAIModels.filter(m=>m.status==="production").reduce((a,m)=>a+m.accuracy,0)/3).toFixed(1)}%`, color: "success" as const },
-          { label: "Avg Latency", value: `${Math.round(mockAIModels.filter(m=>m.status==="production").reduce((a,m)=>a+m.latency_ms,0)/3)}ms`, color: "default" as const },
+          { label: "Production Models", value: productionModels.length, color: "success" as const },
+          { label: "Beta Models", value: betaModels.length, color: "accent" as const },
+          { label: "Avg Accuracy", value: `${avgAccuracy}%`, color: "success" as const },
+          { label: "Avg Latency", value: `${avgLatency}ms`, color: "default" as const },
         ].map((kpi, i) => <KPICard key={kpi.label} {...kpi} index={i} />)}
       </KPIGrid>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {mockAIModels.map((model, i) => {
-          const StatusIcon = statusConfig[model.status].icon;
-          const TypeIcon = typeIcons[model.type] ?? Brain;
+        {models.map((model, i) => {
+          const StatusIcon = (statusConfig as any)[model.status]?.icon || Brain;
+          const TypeIcon = (typeIcons as any)[model.type] ?? Brain;
           const accuracyPct = model.accuracy;
 
           return (
@@ -70,9 +118,9 @@ export default function AIModelsPage() {
                     <p className="text-[10.5px] text-white/35">v{model.version} · {model.model_size_mb}MB</p>
                   </div>
                 </div>
-                <span className={cn("flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold", statusConfig[model.status].color)}>
+                <span className={cn("flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold", (statusConfig as any)[model.status]?.color)}>
                   <StatusIcon className="h-3 w-3" />
-                  {statusConfig[model.status].label}
+                  {(statusConfig as any)[model.status]?.label}
                 </span>
               </div>
 

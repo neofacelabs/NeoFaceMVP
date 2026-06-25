@@ -6,6 +6,7 @@ import { Bell, Search, Command, ChevronDown, LogOut, Settings, User } from "luci
 import { usePlatformStore } from "@/store/platform";
 import { useAuthStore } from "@/store/auth";
 import { cn } from "@/lib/utils";
+import { firebaseLogout } from "@/lib/firebase-auth";
 import { formatDistanceToNow } from "date-fns";
 import {
   DropdownMenu,
@@ -32,6 +33,15 @@ export function DashboardTopbar({ title, roleLabel, orgName }: DashboardTopbarPr
     markNotificationRead,
   } = usePlatformStore();
   const { user, logout } = useAuthStore();
+
+  const handleLogout = async () => {
+    try {
+      await firebaseLogout();
+    } catch (err) {
+      console.error("Firebase logout error:", err);
+    }
+    logout();
+  };
 
   const unread = notifications.filter((n) => !n.read).length;
 
@@ -118,7 +128,7 @@ export function DashboardTopbar({ title, roleLabel, orgName }: DashboardTopbarPr
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-white/[0.06]" />
               <DropdownMenuItem
-                onClick={logout}
+                onClick={handleLogout}
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-[#f87171]/70 hover:bg-[#f87171]/[0.06] hover:text-[#f87171] cursor-pointer"
               >
                 <LogOut className="h-3.5 w-3.5" />

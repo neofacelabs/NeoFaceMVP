@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.api_key_auth import OrgContext, get_org_context
+from app.core.api_key_auth import OrgContext, get_org_context, require_scope
 from app.schemas.aaas import ApplicationCreate, ApplicationUpdate, ApplicationResponse, PagedResponse
 from app.repositories.organization_repository import OrganizationRepository
 
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/projects", tags=["Projects"])
 async def list_projects(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
-    ctx: OrgContext = Depends(get_org_context),
+    ctx: OrgContext = Depends(require_scope("project:read")),
     db: AsyncSession = Depends(get_db),
 ) -> PagedResponse[ApplicationResponse]:
     repo = OrganizationRepository(db)
@@ -44,7 +44,7 @@ async def list_projects(
 )
 async def create_project(
     schema: ApplicationCreate,
-    ctx: OrgContext = Depends(get_org_context),
+    ctx: OrgContext = Depends(require_scope("project:write")),
     db: AsyncSession = Depends(get_db),
 ) -> ApplicationResponse:
     repo = OrganizationRepository(db)
@@ -58,7 +58,7 @@ async def create_project(
 )
 async def get_project(
     project_id: uuid.UUID,
-    ctx: OrgContext = Depends(get_org_context),
+    ctx: OrgContext = Depends(require_scope("project:read")),
     db: AsyncSession = Depends(get_db),
 ) -> ApplicationResponse:
     repo = OrganizationRepository(db)
@@ -79,7 +79,7 @@ async def get_project(
 async def update_project(
     project_id: uuid.UUID,
     schema: ApplicationUpdate,
-    ctx: OrgContext = Depends(get_org_context),
+    ctx: OrgContext = Depends(require_scope("project:write")),
     db: AsyncSession = Depends(get_db),
 ) -> ApplicationResponse:
     repo = OrganizationRepository(db)
@@ -99,7 +99,7 @@ async def update_project(
 )
 async def delete_project(
     project_id: uuid.UUID,
-    ctx: OrgContext = Depends(get_org_context),
+    ctx: OrgContext = Depends(require_scope("project:write")),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     repo = OrganizationRepository(db)

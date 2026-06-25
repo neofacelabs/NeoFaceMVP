@@ -259,16 +259,20 @@ async def get_payment_overview(
     - modality_breakdown (per-biometric mode counts)
     """
     is_admin = ctx["is_admin"]
+    from app.models.auth_session import AuthenticationSession
     if is_admin:
-        from app.repositories.transaction_repository import TransactionRepository
-        txn_repo = TransactionRepository(db)
-        total = await txn_repo.count_total()
-        authorized = await txn_repo.count_authorized()
-        volume = await txn_repo.get_total_volume(status="authorized")
-        auth_rate = await txn_repo.get_authorization_rate()
-        modality_breakdown = await txn_repo.get_modality_breakdown()
+        total = (await db.execute(select(func.count(AuthenticationSession.id)))).scalar_one()
+        authorized = (await db.execute(select(func.count(AuthenticationSession.id)).where(AuthenticationSession.status == "success"))).scalar_one()
+        volume = 0.0
+        auth_rate = round((authorized / total * 100) if total > 0 else 100.0, 2)
         
-        from app.models.auth_session import AuthenticationSession
+        # Breakdown by event_type
+        result = await db.execute(
+            select(AuthenticationSession.event_type, func.count(AuthenticationSession.id))
+            .group_by(AuthenticationSession.event_type)
+        )
+        modality_breakdown = {row[0]: row[1] for row in result.fetchall()}
+        
         avg_latency = (await db.execute(select(func.avg(AuthenticationSession.latency_ms)))).scalar_one_or_none()
         avg_latency = round(float(avg_latency), 2) if avg_latency else 0.0
         
@@ -495,11 +499,22 @@ async def get_recent_payments(
     actual_page_size = limit if limit is not None else page_size
 
     if is_admin:
-        from app.repositories.transaction_repository import TransactionRepository
-        from app.schemas.payment import TransactionResponse
-        txn_repo = TransactionRepository(db)
-        transactions, total = await txn_repo.get_recent(page=page, page_size=actual_page_size)
-        resp_txns = [TransactionResponse.model_validate(t) for t in transactions]
+        session_repo = SessionRepository(db)
+        sessions, total = await session_repo.list_all(page=page, page_size=actual_page_size)
+        resp_txns = []
+        for s in sessions:
+            resp_txns.append({
+                "id": str(s.id),
+                "user_id": str(s.identity_id) if s.identity_id else None,
+                "amount": 0.0,
+                "currency": "USD",
+                "status": "authorized" if s.status == "success" else "failed",
+                "modality": s.event_type,
+                "device_trust_score": 100.0 - (s.risk_score or 0.0),
+                "liveness_passed": s.status == "success",
+                "authentication_result": s.status == "success",
+                "created_at": s.created_at.isoformat(),
+            })
     else:
         session_repo = SessionRepository(db)
         sessions, total = await session_repo.list_by_org(ctx["org_id"], page=page, page_size=actual_page_size)

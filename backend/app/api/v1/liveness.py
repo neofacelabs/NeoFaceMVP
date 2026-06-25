@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import TokenData, get_current_user
-from app.models.trust_engine import LivenessLog
 from app.services.active_liveness_service import ActiveLivenessService
 from app.services.challenge_ai_service import ChallengeAIService
 from app.services.passive_liveness_service import PassiveLivenessService
@@ -119,25 +118,7 @@ async def passive_liveness_check(
 
     result = _passive_svc.predict_from_bytes(image_bytes, bbox=bbox)
 
-    # Persist to liveness_logs
-    try:
-        log = LivenessLog(
-            user_id=current_user.user_uuid,
-            liveness_score=result.liveness_score,
-            is_live=result.is_live,
-            confidence=result.confidence,
-            anti_spoof_score=result.liveness_score * 100,
-            attack_type=result.attack_type,
-            check_type="passive",
-            method=result.method,
-            ip_address=request.client.host if request.client else None,
-            session_id=session_id,
-            extra={"v1_score": result.v1_score, "v2_score": result.v2_score},
-        )
-        db.add(log)
-        await db.commit()
-    except Exception as exc:
-        logger.warning("liveness.check: log write failed", error=str(exc))
+    # Log writing removed as liveness_logs table is omitted
 
     return PassiveLivenessResponse(
         liveness_score=result.liveness_score,
@@ -253,22 +234,7 @@ async def verify_challenge_frame(
     if result.challenge_completed:
         await challenge_svc.validate_and_consume(challenge_id, nonce)
 
-        # Log the completed challenge
-        try:
-            log = LivenessLog(
-                user_id=current_user.user_uuid,
-                is_live=True,
-                confidence=result.confidence,
-                check_type="active",
-                challenge_type=result.challenge_type,
-                challenge_completed=True,
-                ip_address=request.client.host if request.client else None,
-                session_id=session_id or str(current_user.user_uuid),
-            )
-            db.add(log)
-            await db.commit()
-        except Exception as exc:
-            logger.warning("liveness.verify: log write failed", error=str(exc))
+        # Log writing removed as liveness_logs table is omitted
 
     return ChallengeVerifyResponse(
         challenge_completed=result.challenge_completed,

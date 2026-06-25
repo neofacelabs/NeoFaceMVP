@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import TokenData, get_current_user
 from app.core.logging import logger
-from app.models.trust_engine import HeadPoseLog
+
 from app.services.headpose_service import HeadPoseService
 
 router = APIRouter(prefix="/headpose", tags=["Head Pose"])
@@ -69,21 +69,7 @@ async def estimate_head_pose(
 
     result = _headpose_svc.estimate(image_bytes)
 
-    # Persist to headpose_logs
-    try:
-        log = HeadPoseLog(
-            user_id=current_user.user_uuid,
-            pitch=result.pitch,
-            roll=result.roll,
-            yaw=result.yaw,
-            is_frontal=result.is_frontal,
-            session_id=session_id,
-            ip_address=request.client.host if request.client else None,
-        )
-        db.add(log)
-        await db.commit()
-    except Exception as exc:
-        logger.warning("headpose.estimate: log write failed", error=str(exc))
+
 
     return HeadPoseResponse(
         pitch=result.pitch,

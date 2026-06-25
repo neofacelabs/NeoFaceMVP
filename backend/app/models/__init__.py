@@ -15,16 +15,10 @@ from app.models.enrollment_log import EnrollmentLog
 from app.models.verification_log import VerificationLog
 from app.models.audit_log import AuditLog
 from app.models.merchant import Merchant
-from app.models.bank_account import BankAccount
-from app.models.transaction import Transaction, TransactionBiometricDetail
 from app.models.biometric_credential import BiometricCredential
 
 # ── Trust Engine Models (NeoFace Trust Engine v2) ─────────────────────────────
 from app.models.trust_engine import (
-    LivenessLog,
-    EmotionLog,
-    HeadPoseLog,
-    DeepfakeLog,
     BehaviorProfile,
     BehaviorEvent,
     DeviceTrustLog,
@@ -57,15 +51,8 @@ __all__ = [
     "VerificationLog",
     "AuditLog",
     "Merchant",
-    "BankAccount",
-    "Transaction",
-    "TransactionBiometricDetail",
     "BiometricCredential",
     # Trust Engine
-    "LivenessLog",
-    "EmotionLog",
-    "HeadPoseLog",
-    "DeepfakeLog",
     "BehaviorProfile",
     "BehaviorEvent",
     "DeviceTrustLog",

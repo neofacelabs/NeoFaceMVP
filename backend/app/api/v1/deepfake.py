@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import TokenData, get_current_user
 from app.core.logging import logger
-from app.models.trust_engine import DeepfakeLog
+
 from app.services.deepfake_service import DeepfakeService
 
 from app.utils.dependencies import get_face_detector
@@ -94,27 +94,7 @@ async def deepfake_check(
 
     result = _deepfake_svc.detect(image_bytes, bbox=bbox)
 
-    # Persist to deepfake_logs (store hash, not raw image)
-    try:
-        log = DeepfakeLog(
-            user_id=current_user.user_uuid,
-            deepfake_probability=result.deepfake_probability,
-            is_deepfake=result.is_deepfake,
-            model_used=result.method,
-            attack_category=result.attack_category,
-            inference_ms=result.inference_ms,
-            image_hash=result.image_hash,
-            session_id=session_id,
-            ip_address=request.client.host if request.client else None,
-            extra={
-                "efficientnet_score": result.efficientnet_score,
-                "xceptionnet_score": result.xceptionnet_score,
-            },
-        )
-        db.add(log)
-        await db.commit()
-    except Exception as exc:
-        logger.warning("deepfake.check: log write failed", error=str(exc))
+
 
     return DeepfakeCheckResponse(
         deepfake_probability=result.deepfake_probability,

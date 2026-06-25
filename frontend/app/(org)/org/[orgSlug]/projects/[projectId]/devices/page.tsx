@@ -13,7 +13,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { mockEducationDevices } from "@/lib/mock-data/education";
 import { Button } from "@/components/ui/button";
 import { Plus, RefreshCw, Search, WifiOff, Wifi, AlertCircle, Wrench } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -37,17 +36,47 @@ const statusIcon: Record<DeviceStatus, React.ElementType> = {
   maintenance: Wrench,
 };
 
+import { webAuthnApi } from "@/lib/api";
+
 export default function DevicesPage({ params }: { params: Promise<{ orgSlug: string; projectId: string }> }) {
   const { orgSlug, projectId } = React.use(params);
   const [search, setSearch] = React.useState("");
+  const [devices, setDevices] = React.useState<any[]>([]);
 
-  const filtered = mockEducationDevices.filter((d) =>
+  React.useEffect(() => {
+    async function loadDevices() {
+      try {
+        const { data } = await webAuthnApi.listDevices();
+        if (Array.isArray(data)) {
+          const mapped = data.map((item: any) => ({
+            id: item.id || item.credential_id,
+            name: item.device_name || "WebAuthn Token",
+            serial_number: (item.credential_id || "").slice(0, 16),
+            type: "edge_device",
+            location: "Authorized Client Portal",
+            status: "online" as const,
+            auth_count_today: 0,
+            uptime_pct: 100.0,
+            firmware_version: "1.0.0",
+            last_sync_at: item.created_at || new Date().toISOString(),
+          }));
+          
+          setDevices(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to load WebAuthn devices:", err);
+      }
+    }
+    loadDevices();
+  }, []);
+
+  const filtered = devices.filter((d) =>
     search ? d.name.toLowerCase().includes(search.toLowerCase()) || d.location.toLowerCase().includes(search.toLowerCase()) : true
   );
 
-  const online = mockEducationDevices.filter((d) => d.status === "online").length;
-  const offline = mockEducationDevices.filter((d) => d.status === "offline").length;
-  const warning = mockEducationDevices.filter((d) => d.status === "warning").length;
+  const online = devices.filter((d) => d.status === "online").length;
+  const offline = devices.filter((d) => d.status === "offline").length;
+  const warning = devices.filter((d) => d.status === "warning").length;
 
   return (
     <div className="space-y-6">
@@ -121,7 +150,7 @@ export default function DevicesPage({ params }: { params: Promise<{ orgSlug: str
           </TableHeader>
           <TableBody>
             {filtered.map((device, i) => {
-              const StatusIcon = statusIcon[device.status];
+              const StatusIcon = (statusIcon as any)[device.status] || Wifi;
               return (
                 <motion.tr
                   key={device.id}

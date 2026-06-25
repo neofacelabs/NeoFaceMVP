@@ -107,6 +107,8 @@ async def _resolve_api_key(api_key: str, db: AsyncSession) -> OrgContext:
 async def _resolve_jwt(token: str, db: AsyncSession) -> OrgContext:
     """Resolve org context from a JWT-authenticated dashboard user."""
     from app.repositories.organization_repository import OrganizationRepository
+    from app.models.org_membership import OrgMembership
+    from sqlalchemy import select
 
     try:
         payload = JWTHandler.decode_token(token)
@@ -139,10 +141,17 @@ async def _resolve_jwt(token: str, db: AsyncSession) -> OrgContext:
             auth_method="jwt",
         )
 
-    # Regular users: look up their org membership
-    org = await org_repo.get_user_org(user_id)
-    if not org:
-        # Auto-assign to default org
+    # Regular users: check org membership and role
+    result = await db.execute(
+        select(OrgMembership)
+        .where(OrgMembership.user_id == user_id)
+        .order_by(OrgMembership.created_at.asc())
+        .limit(1)
+    )
+    membership = result.scalar_one_or_none()
+
+    if not membership:
+        # Guest or newly registered user with no organization
         default_org = await org_repo.get_default()
         if not default_org:
             raise HTTPException(
@@ -156,10 +165,16 @@ async def _resolve_jwt(token: str, db: AsyncSession) -> OrgContext:
             auth_method="jwt",
         )
 
+    # Determine scopes based on organization membership role
+    if membership.role in ("owner", "admin"):
+        scopes = ["*"]  # Org admins get all permissions for their organization
+    else:
+        scopes = ["identity:read", "session:read"]  # Regular members only get member access
+
     return OrgContext(
-        org_id=org.id,
+        org_id=membership.organization_id,
         user_id=user_id,
-        scopes=["identity:read", "identity:write", "session:read", "webhooks:manage"],
+        scopes=scopes,
         auth_method="jwt",
     )
 

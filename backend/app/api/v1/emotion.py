@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import TokenData, get_current_user
 from app.core.logging import logger
-from app.models.trust_engine import EmotionLog
 from app.services.emotion_service import EmotionService
 
 from app.utils.dependencies import get_face_detector
@@ -82,20 +81,7 @@ async def analyze_emotion(
 
     result = _emotion_svc.analyze_from_bytes(image_bytes, bbox=bbox)
 
-    # Persist to emotion_logs
-    try:
-        log = EmotionLog(
-            user_id=current_user.user_uuid,
-            emotion=result.emotion,
-            confidence=result.confidence,
-            all_scores=result.all_scores,
-            session_id=session_id,
-            ip_address=request.client.host if request.client else None,
-        )
-        db.add(log)
-        await db.commit()
-    except Exception as exc:
-        logger.warning("emotion.analyze: log write failed", error=str(exc))
+    # Log writing removed as emotion_logs table is omitted
 
     return EmotionAnalyzeResponse(
         emotion=result.emotion,

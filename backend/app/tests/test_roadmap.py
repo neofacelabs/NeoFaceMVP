@@ -15,13 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.merchant import Merchant
-from app.models.bank_account import BankAccount
 from app.models.trust_engine import BehaviorProfile, BehaviorEvent, ContinuousSession
-from app.models.transaction import Transaction
 from app.repositories.embedding_repository import EmbeddingRepository
-from app.repositories.transaction_repository import TransactionRepository
-from app.services.stripe_gateway import StripeGateway
-from app.services.payment_service import PaymentAuthorizationService
 from app.services.behavioral_biometrics_service import BehavioralBiometricsService, extract_features
 from app.tasks.behavior_training_task import _train_behavior_model
 from app.tasks.continuous_auth_tasks import _sweep_sessions_async
@@ -58,21 +53,7 @@ async def sample_merchant(db_session: AsyncSession) -> Merchant:
     await db_session.refresh(merchant)
     return merchant
 
-@pytest_asyncio.fixture
-async def sample_bank_account(db_session: AsyncSession, test_user) -> BankAccount:
-    """Create a linked bank account for the test user."""
-    account = BankAccount(
-        user_id=test_user.id,
-        bank_name="NeoBank",
-        account_holder_name="Test User",
-        encrypted_token="tok_123456",
-        account_mask="1234",
-        is_default=True,
-    )
-    db_session.add(account)
-    await db_session.flush()
-    await db_session.refresh(account)
-    return account
+
 
 
 class TestPhase1Biometrics:
@@ -115,61 +96,7 @@ class TestPhase1Biometrics:
                 assert "<=>" in sql_string
 
 
-class TestPhase3Financials:
-    """Tests Stripe/Plaid settlement gateway flow and row-level tenant filtering."""
 
-    def test_stripe_mock_settlement_outcomes(self):
-        """Test StripeGateway outcomes for normal vs fail tokens."""
-        gateway = StripeGateway.get_instance()
-
-        success_res = gateway.process_bank_transfer(100.0, "USD", "tok_valid")
-        assert success_res["success"] is True
-        assert success_res["status"] == "succeeded"
-        assert success_res["charge_id"].startswith("ch_")
-
-        fail_res = gateway.process_bank_transfer(100.0, "USD", "tok_fail_insufficient")
-        assert fail_res["success"] is False
-        assert fail_res["status"] == "failed"
-        assert fail_res["error"] == "insufficient_funds"
-
-    @pytest.mark.asyncio
-    async def test_payment_settlement_integration(
-        self, db_session: AsyncSession, test_user, sample_merchant, sample_bank_account
-    ):
-        """Test payment authorization executes Stripe transfer on default bank account."""
-        # Mock face verification to return genuine match
-        svc = PaymentAuthorizationService(db=db_session)
-        
-        with patch.object(svc, "_run_face_verification") as mock_face:
-            mock_face.return_value = {
-                "confidence_score": 98.0,
-                "liveness_score": 85.0,
-                "liveness_passed": True,
-                "anti_spoof_passed": True,
-                "blink_detected": True,
-                "head_turn_detected": True,
-                "user_id": str(test_user.id),
-                "embedding_hash": "dummy_hash",
-            }
-
-            result = await svc.authorize(
-                amount=150.0,
-                currency="USD",
-                merchant_id=sample_merchant.id,
-                face_image_bytes=b"dummy_image",
-            )
-
-            assert result["authorized"] is True
-            assert result["status"] == "authorized"
-            
-            # Check transaction record in DB
-            txn_id = uuid.UUID(result["transaction_id"])
-            txn_repo = TransactionRepository(db_session)
-            txn = await txn_repo.get_by_id(txn_id)
-            assert txn is not None
-            assert txn.status == "authorized"
-            assert txn.amount == 150.0
-            assert txn.bank_account_id == sample_bank_account.id
 
 
 class TestPhase4Behavioral:

@@ -16,9 +16,11 @@
  *   so we always get the current value, not the captured closure value.
  */
 
-import { useEffect } from "react";
-import { subscribeToAuthState } from "@/lib/firebase-auth";
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { subscribeToAuthState, firebaseLogout } from "@/lib/firebase-auth";
 import { useAuthStore } from "@/store/auth";
+import { authApi } from "@/lib/api";
 import type { User } from "@/types";
 import type { User as FirebaseUser } from "firebase/auth";
 
@@ -40,6 +42,39 @@ export function FirebaseAuthProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Wait for Zustand persist to rehydrate before checking authentication
+  useEffect(() => {
+    if ((useAuthStore as any).persist?.hasHydrated()) {
+      setHydrated(true);
+    } else {
+      const unsub = (useAuthStore as any).persist?.onFinishHydration(() => {
+        setHydrated(true);
+      });
+      return () => unsub?.();
+    }
+  }, []);
+
+  // Global route guard — redirect to /login if unauthenticated on a protected page
+  useEffect(() => {
+    if (!hydrated) return;
+
+    const isPublicRoute =
+      pathname === "/login" ||
+      pathname === "/register" ||
+      pathname === "/pricing" ||
+      pathname === "/" ||
+      pathname.startsWith("/api/");
+
+    if (!isAuthenticated && !isPublicRoute) {
+      router.replace("/login");
+    }
+  }, [hydrated, isAuthenticated, pathname, router]);
+
   useEffect(() => {
     const unsubscribe = subscribeToAuthState((fbUser) => {
       // Always read fresh state via getState() — never rely on a closure value
@@ -52,15 +87,25 @@ export function FirebaseAuthProvider({
         setFirebaseUser(fbUser);
 
         // Only set user/tokens if there's no existing backend session.
-        // This prevents overwriting a real backend JWT with a Firebase pseudo-token.
         if (!isAuthenticated) {
-          const neoUser = buildUserFromFirebase(fbUser);
-          setUser(neoUser);
-          // Use Firebase UID as a pseudo-token so auth guards pass
-          setTokens(
-            `firebase-${fbUser.uid}`,
-            `firebase-refresh-${fbUser.uid}`
-          );
+          fbUser.getIdToken()
+            .then(async (idToken) => {
+              try {
+                const { data: tokens } = await authApi.googleSignIn(idToken);
+                setTokens(tokens.access_token, tokens.refresh_token);
+                const { data: user } = await authApi.me();
+                setUser(user);
+              } catch (err) {
+                console.error("Auto-token exchange failed, clearing Firebase session:", err);
+                await firebaseLogout();
+                useAuthStore.getState().logout();
+              }
+            })
+            .catch(async (tokenErr) => {
+              console.error("Failed to get Firebase ID token:", tokenErr);
+              await firebaseLogout();
+              useAuthStore.getState().logout();
+            });
         }
       } else {
         // Firebase signed out — clear the firebase user reference.

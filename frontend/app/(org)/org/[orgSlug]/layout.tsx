@@ -5,6 +5,7 @@ import { DashboardLayout } from "@/components/dashboard/layouts/DashboardLayout"
 import { getOrgAdminNav } from "@/components/dashboard/layouts/DashboardSidebar";
 import { Building2 } from "lucide-react";
 import { mockOrganizations } from "@/lib/mock-data/super-admin";
+import { usePathname } from "next/navigation";
 
 export default function OrgAdminLayout({
   children,
@@ -14,12 +15,21 @@ export default function OrgAdminLayout({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = React.use(params);
+  const pathname = usePathname();
+
   const org = mockOrganizations.find((o) => o.slug === orgSlug) ?? {
     name: orgSlug,
     slug: orgSlug,
     industry: "",
     plan: "pro" as const,
   };
+
+  // Check if we are inside a project sub-page (and not the project creation page)
+  const isProjectPage = pathname.split("/").includes("projects") && !pathname.endsWith("/projects/new");
+
+  if (isProjectPage) {
+    return <>{children}</>;
+  }
 
   const navItems = getOrgAdminNav(orgSlug);
 

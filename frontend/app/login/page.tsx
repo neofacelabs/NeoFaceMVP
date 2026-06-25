@@ -12,36 +12,48 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { authApi } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
-import { signInWithGoogle } from "@/lib/firebase-auth";
+import { signInWithGoogle, firebaseLogout } from "@/lib/firebase-auth";
 import type { User } from "@/types";
 
 // ── Demo accounts ─────────────────────────────────────────────────────────────
 const DEMO_ACCOUNTS = [
   {
-    role: "Admin",
+    role: "Super Admin",
     email: "admin@neoface.io",
     password: "AdminPass123!",
     color: "#a5b4fc",
     dot: "bg-[#a5b4fc]",
   },
   {
-    role: "Viewer",
-    email: "demo@neoface.io",
-    password: "DemoPass123!",
+    role: "Org Admin",
+    email: "orgadmin@neoface.io",
+    password: "AdminPass123!",
+    color: "#38bdf8",
+    dot: "bg-[#38bdf8]",
+  },
+  {
+    role: "Member",
+    email: "member@neoface.io",
+    password: "AdminPass123!",
     color: "#34d399",
     dot: "bg-[#34d399]",
   },
 ] as const;
 
 function mockUserForEmail(email: string): User {
-  const isAdmin = email === "admin@neoface.io";
+  const isSuper = email === "admin@neoface.io";
+  const isOrg = email === "orgadmin@neoface.io";
   return {
-    id: isAdmin ? "00000000-0000-0000-0000-000000000001" : "00000000-0000-0000-0000-000000000002",
-    name: isAdmin ? "NeoFace Admin" : "Demo User",
+    id: isSuper
+      ? "00000000-0000-0000-0000-000000000001"
+      : isOrg
+      ? "00000000-0000-0000-0000-000000000002"
+      : "00000000-0000-0000-0000-000000000003",
+    name: isSuper ? "Super Admin" : isOrg ? "Org Admin" : "Member",
     email,
-    role: isAdmin ? "admin" : "user",
+    role: isSuper ? "admin" : "user",
     is_active: true,
-    is_enrolled: isAdmin,
+    is_enrolled: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -49,7 +61,8 @@ function mockUserForEmail(email: string): User {
 
 const MOCK_CREDENTIALS: Record<string, string> = {
   "admin@neoface.io": "AdminPass123!",
-  "demo@neoface.io":  "DemoPass123!",
+  "orgadmin@neoface.io": "AdminPass123!",
+  "member@neoface.io": "AdminPass123!",
 };
 
 const schema = z.object({
@@ -112,26 +125,12 @@ export default function LoginPage() {
         const { data: user } = await authApi.me();
         setUser(user);
         toast.success(`Welcome, ${user.name}! 🎉`, { description: "Signed in with Google" });
+        router.push("/dashboard");
       } catch (backendErr: any) {
-        // Backend is offline or Firebase creds not configured — fall back to Firebase-only mode
-        const neoUser: User = {
-          id: fbUser.uid,
-          name: fbUser.displayName ?? fbUser.email?.split("@")[0] ?? "User",
-          email: fbUser.email ?? "",
-          role: "user",
-          is_active: true,
-          is_enrolled: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setTokens(`firebase-${fbUser.uid}`, `firebase-refresh-${fbUser.uid}`);
-        setUser(neoUser);
-        toast.success(`Welcome, ${neoUser.name}! 🎉`, {
-          description: "Signed in with Google (demo mode)",
-        });
+        console.error("Backend auth exchange failed:", backendErr);
+        await firebaseLogout();
+        toast.error("Google sign-in is not configured or failed on this server.");
       }
-
-      router.push("/dashboard");
     } catch (err: any) {
       // User cancelled popup — don't show error
       if (err?.code !== "auth/popup-closed-by-user" && err?.code !== "auth/cancelled-popup-request") {

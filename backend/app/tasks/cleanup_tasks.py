@@ -83,7 +83,6 @@ async def _archive_logs_async() -> dict:
     from sqlalchemy import delete
     from app.core.database import AsyncSessionLocal
     from app.models.trust_engine import (
-        LivenessLog, EmotionLog, HeadPoseLog, DeepfakeLog,
         DeviceTrustLog, BehaviorEvent, ContinuousSession, ChallengeLog,
     )
 
@@ -91,25 +90,7 @@ async def _archive_logs_async() -> dict:
     totals: dict[str, int] = {}
 
     async with AsyncSessionLocal() as db:
-        # Liveness logs
-        cutoff = now - timedelta(days=_LIVENESS_LOG_RETENTION_DAYS)
-        r = await db.execute(delete(LivenessLog).where(LivenessLog.created_at < cutoff))
-        totals["liveness_logs"] = r.rowcount
 
-        # Emotion logs
-        cutoff = now - timedelta(days=_EMOTION_LOG_RETENTION_DAYS)
-        r = await db.execute(delete(EmotionLog).where(EmotionLog.created_at < cutoff))
-        totals["emotion_logs"] = r.rowcount
-
-        # Head pose logs
-        cutoff = now - timedelta(days=_HEADPOSE_LOG_RETENTION_DAYS)
-        r = await db.execute(delete(HeadPoseLog).where(HeadPoseLog.created_at < cutoff))
-        totals["headpose_logs"] = r.rowcount
-
-        # Deepfake logs
-        cutoff = now - timedelta(days=_DEEPFAKE_LOG_RETENTION_DAYS)
-        r = await db.execute(delete(DeepfakeLog).where(DeepfakeLog.created_at < cutoff))
-        totals["deepfake_logs"] = r.rowcount
 
         # Device trust logs
         cutoff = now - timedelta(days=_DEVICE_LOG_RETENTION_DAYS)

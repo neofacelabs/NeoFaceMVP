@@ -121,3 +121,29 @@ class SessionRepository:
         )
         val = result.scalar_one_or_none()
         return round(float(val), 2) if val else 0.0
+
+    async def list_all(
+        self,
+        page: int = 1,
+        page_size: int = 50,
+        event_type: str | None = None,
+        status: str | None = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+    ) -> tuple[list[AuthenticationSession], int]:
+        q = select(AuthenticationSession)
+        if event_type:
+            q = q.where(AuthenticationSession.event_type == event_type)
+        if status:
+            q = q.where(AuthenticationSession.status == status)
+        if from_date:
+            q = q.where(AuthenticationSession.created_at >= from_date)
+        if to_date:
+            q = q.where(AuthenticationSession.created_at <= to_date)
+
+        count_q = select(func.count()).select_from(q.subquery())
+        total = (await self.db.execute(count_q)).scalar_one()
+        q = q.order_by(AuthenticationSession.created_at.desc())
+        q = q.offset((page - 1) * page_size).limit(page_size)
+        sessions = (await self.db.execute(q)).scalars().all()
+        return list(sessions), total

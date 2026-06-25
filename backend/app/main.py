@@ -52,7 +52,7 @@ from slowapi.util import get_remote_address
 
 from app.api.v1 import (
     auth, dashboard, enrollment, users, verification,
-    payments, merchants, bank_accounts, biometrics, webauthn,
+    merchants, biometrics, webauthn,
     # Trust Engine v2
     liveness, emotion, headpose, deepfake, risk, device_trust, behavioral, continuous_auth,
     webrtc, trust_engine,
@@ -171,17 +171,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 async def bootstrap_admin() -> None:
     """
-    Create default admin user if it doesn't exist.
-    Credentials are loaded from environment variables.
+    Create default admin and demo users if they don't exist.
+    Credentials are loaded from environment variables and defaults.
     """
     from app.core.database import AsyncSessionLocal
     from app.core.security import PasswordHasher
     from app.repositories.user_repository import UserRepository
+    from app.repositories.organization_repository import OrganizationRepository
     from app.schemas.user import UserCreate
 
     async with AsyncSessionLocal() as session:
         user_repo = UserRepository(session)
+        org_repo = OrganizationRepository(session)
 
+        default_org = await org_repo.get_default()
+        if not default_org:
+            logger.warning("Default organization not seeded yet. Skipping membership seeding.")
+
+        # 1. Super Admin
         if not await user_repo.exists_by_email(settings.ADMIN_EMAIL):
             hashed = PasswordHasher.hash(settings.ADMIN_PASSWORD)
             admin_schema = UserCreate(
@@ -189,11 +196,47 @@ async def bootstrap_admin() -> None:
                 email=settings.ADMIN_EMAIL,
                 password=settings.ADMIN_PASSWORD,
             )
-            await user_repo.create(admin_schema, hashed_password=hashed, role="admin")
+            user = await user_repo.create(admin_schema, hashed_password=hashed, role="admin")
+            if default_org:
+                await org_repo.add_member(default_org.id, user.id, role="owner")
             await session.commit()
             logger.info("Admin user bootstrapped", email=settings.ADMIN_EMAIL)
         else:
             logger.debug("Admin user already exists", email=settings.ADMIN_EMAIL)
+
+        # 2. Org Admin
+        org_admin_email = "orgadmin@neoface.io"
+        if not await user_repo.exists_by_email(org_admin_email):
+            hashed = PasswordHasher.hash("AdminPass123!")
+            org_admin_schema = UserCreate(
+                name="Demo Org Admin",
+                email=org_admin_email,
+                password="AdminPass123!",
+            )
+            user = await user_repo.create(org_admin_schema, hashed_password=hashed, role="user")
+            if default_org:
+                await org_repo.add_member(default_org.id, user.id, role="admin")
+            await session.commit()
+            logger.info("Org admin user bootstrapped", email=org_admin_email)
+        else:
+            logger.debug("Org admin user already exists", email=org_admin_email)
+
+        # 3. Regular Member
+        member_email = "member@neoface.io"
+        if not await user_repo.exists_by_email(member_email):
+            hashed = PasswordHasher.hash("AdminPass123!")
+            member_schema = UserCreate(
+                name="Demo Member User",
+                email=member_email,
+                password="AdminPass123!",
+            )
+            user = await user_repo.create(member_schema, hashed_password=hashed, role="user")
+            if default_org:
+                await org_repo.add_member(default_org.id, user.id, role="member")
+            await session.commit()
+            logger.info("Member user bootstrapped", email=member_email)
+        else:
+            logger.debug("Member user already exists", email=member_email)
 
 
 # ── Application factory ────────────────────────────────────────────────────────
@@ -294,9 +337,7 @@ InsightFace • ArcFace • MediaPipe • FastAPI • PostgreSQL • Redis • C
     app.include_router(users.router, prefix=API_PREFIX)
     app.include_router(dashboard.router, prefix=API_PREFIX)
     # Payment infrastructure routers
-    app.include_router(payments.router, prefix=API_PREFIX)
     app.include_router(merchants.router, prefix=API_PREFIX)
-    app.include_router(bank_accounts.router, prefix=API_PREFIX)
     app.include_router(biometrics.router, prefix=API_PREFIX)
     app.include_router(webauthn.router, prefix=API_PREFIX)
 

@@ -322,6 +322,26 @@ async def delete_face(
     user = await user_repo.get_by_id(current_user.user_uuid)
     if user:
         user.is_enrolled = False
+        # Update matching Identity records in multitenant AaaS to "pending"
+        try:
+            from app.models.identity import Identity
+            from sqlalchemy import update, or_
+            stmt = (
+                update(Identity)
+                .where(
+                    or_(
+                        Identity.external_user_id == user.email,
+                        Identity.external_user_id.like(f'%"{user.email}"%')
+                    )
+                )
+                .values(
+                    enrollment_status="pending",
+                    face_embedding_id=None
+                )
+            )
+            await db.execute(stmt)
+        except Exception as exc:
+            logger.warning("Failed to reset Identity status during face delete", email=user.email, error=str(exc))
     await db.commit()
 
     return {

@@ -15,7 +15,7 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.trust_engine import DeepfakeLog, LivenessLog, RiskScore
+from app.models.trust_engine import RiskScore
 from app.schemas.aaas import FraudEventResponse, FraudOverviewResponse, FraudTimelinePoint
 
 
@@ -98,42 +98,16 @@ class FraudService:
     # ── Private helpers ───────────────────────────────────────────────────────
 
     async def _count_deepfakes(self, since: datetime) -> int:
-        result = await self.db.execute(
-            select(func.count(DeepfakeLog.id)).where(
-                DeepfakeLog.is_deepfake == True,  # noqa: E712
-                DeepfakeLog.created_at >= since,
-            )
-        )
-        return result.scalar_one() or 0
+        return 0
 
     async def _count_deepfakes_range(self, start: datetime, end: datetime) -> int:
-        result = await self.db.execute(
-            select(func.count(DeepfakeLog.id)).where(
-                DeepfakeLog.is_deepfake == True,  # noqa: E712
-                DeepfakeLog.created_at >= start,
-                DeepfakeLog.created_at <= end,
-            )
-        )
-        return result.scalar_one() or 0
+        return 0
 
     async def _count_spoof_attempts(self, since: datetime) -> int:
-        result = await self.db.execute(
-            select(func.count(LivenessLog.id)).where(
-                LivenessLog.is_live == False,  # noqa: E712
-                LivenessLog.created_at >= since,
-            )
-        )
-        return result.scalar_one() or 0
+        return 0
 
     async def _count_spoof_attempts_range(self, start: datetime, end: datetime) -> int:
-        result = await self.db.execute(
-            select(func.count(LivenessLog.id)).where(
-                LivenessLog.is_live == False,  # noqa: E712
-                LivenessLog.created_at >= start,
-                LivenessLog.created_at <= end,
-            )
-        )
-        return result.scalar_one() or 0
+        return 0
 
     async def _count_high_risk_sessions(self, since: datetime) -> int:
         result = await self.db.execute(
@@ -155,13 +129,4 @@ class FraudService:
         return result.scalar_one() or 0
 
     async def _count_replay_attacks(self, since: datetime) -> int:
-        # Replay = deepfakes flagged as deepfake_video attack category
-        result = await self.db.execute(
-            select(func.count(DeepfakeLog.id)).where(
-                DeepfakeLog.is_deepfake == True,  # noqa: E712
-                DeepfakeLog.deepfake_probability > 0.8,
-                DeepfakeLog.attack_category == "deepfake_video",
-                DeepfakeLog.created_at >= since,
-            )
-        )
-        return result.scalar_one() or 0
+        return 0

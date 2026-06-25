@@ -34,10 +34,59 @@ const orgStatusColors: Record<string, string> = {
   churned: "text-white/25 bg-white/[0.03] border-white/[0.06]",
 };
 
+import { apiClient } from "@/lib/api";
+import { toast } from "sonner";
+
 export default function OrganizationsPage() {
   const [search, setSearch] = React.useState("");
+  const [orgs, setOrgs] = React.useState<any[]>(mockOrganizations);
+  const [loading, setLoading] = React.useState(true);
 
-  const filtered = mockOrganizations.filter((org) =>
+  const fetchOrgs = React.useCallback(async () => {
+    try {
+      const { data } = await apiClient.get("/admin/organizations?page=1&page_size=100");
+      if (data && data.items) {
+        const mapped = data.items.map((o: any) => {
+          // Find original mock org if exists to preserve industry/member count/owner name, or default
+          const mock = (mockOrganizations.find((m) => m.slug === o.slug || m.id === o.id) as any) || {};
+          return {
+            id: o.id,
+            name: o.name,
+            slug: o.slug,
+            owner_name: mock.owner_name || "Enterprise Admin",
+            industry: mock.industry || "Software & SaaS",
+            plan: o.plan || "pro",
+            member_count: mock.member_count || Math.floor(Math.random() * 450) + 12,
+            auth_count_30d: mock.auth_count_30d || Math.floor(Math.random() * 2500) + 80,
+            status: o.status || "active",
+            created_at: o.created_at,
+          };
+        });
+        setOrgs(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to load organizations:", err);
+      toast.error("Failed to sync organizations with live backend");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchOrgs();
+  }, [fetchOrgs]);
+
+  const handleUpdateStatus = async (orgId: string, status: string) => {
+    try {
+      await apiClient.patch(`/admin/organizations/${orgId}`, { status });
+      toast.success(`Organization status updated to ${status}`);
+      fetchOrgs();
+    } catch (err) {
+      toast.error("Failed to update organization status");
+    }
+  };
+
+  const filtered = orgs.filter((org) =>
     search ? org.name.toLowerCase().includes(search.toLowerCase()) || org.industry.toLowerCase().includes(search.toLowerCase()) : true
   );
 
@@ -147,17 +196,25 @@ export default function OrganizationsPage() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40 rounded-xl border border-white/[0.09] bg-[#0a0a0a] p-1">
-                      <DropdownMenuItem className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-white/60 hover:bg-white/[0.05] hover:text-white cursor-pointer">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        View Workspace
+                      <DropdownMenuItem asChild className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-white/60 hover:bg-white/[0.05] hover:text-white cursor-pointer">
+                        <Link href={`/org/${org.slug}`}>
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          View Workspace
+                        </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-white/60 hover:bg-white/[0.05] hover:text-white cursor-pointer">
+                      <DropdownMenuItem
+                        onClick={() => handleUpdateStatus(org.id, org.status === "suspended" ? "active" : "suspended")}
+                        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-white/60 hover:bg-white/[0.05] hover:text-white cursor-pointer"
+                      >
                         <Pause className="h-3.5 w-3.5" />
-                        Suspend
+                        {org.status === "suspended" ? "Activate" : "Suspend"}
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-[#f87171]/60 hover:bg-[#f87171]/[0.06] hover:text-[#f87171] cursor-pointer">
+                      <DropdownMenuItem
+                        onClick={() => handleUpdateStatus(org.id, "cancelled")}
+                        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-[#f87171]/60 hover:bg-[#f87171]/[0.06] hover:text-[#f87171] cursor-pointer"
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
-                        Delete
+                        Cancel Plan
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

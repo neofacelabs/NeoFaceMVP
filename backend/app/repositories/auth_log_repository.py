@@ -107,7 +107,7 @@ class AuthLogRepository:
 
         result = await self.db.execute(
             select(
-                cast(AuthLog.timestamp, type_=AuthLog.timestamp.type).label("date"),
+                func.date(AuthLog.timestamp).label("date"),
                 func.count(AuthLog.id).label("total"),
                 func.sum(
                     case((AuthLog.authentication_result == True, 1), else_=0)  # noqa: E712

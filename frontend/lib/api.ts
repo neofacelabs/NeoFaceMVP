@@ -3,6 +3,7 @@
  * retry logic, and typed response helpers.
  */
 import axios, { AxiosError, type AxiosRequestConfig } from "axios";
+import { useAuthStore } from "@/store/auth";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -49,11 +50,17 @@ api.interceptors.response.use(
             original.headers.Authorization = `Bearer ${data.access_token}`;
           }
           return api(original);
+        } else {
+          useAuthStore.getState().logout();
+          window.location.href = "/login";
+          return Promise.reject(error);
         }
-      } catch {
+      } catch (err) {
         localStorage.removeItem("bioid_access_token");
         localStorage.removeItem("bioid_refresh_token");
+        useAuthStore.getState().logout();
         window.location.href = "/login";
+        return Promise.reject(error);
       }
     }
     return Promise.reject(error);
@@ -339,11 +346,19 @@ export const trustEngineApi = {
     api.get("/api/v1/trust-engine/enrollment-status"),
 };
 
-// Convenience alias used by new pages — identical instance with /api/v1 prefix
+const getFullPath = (path: string) => {
+  const cleanPath = path.replace(/^\//, "");
+  if (cleanPath.startsWith("admin/")) {
+    return `/api/${cleanPath}`;
+  }
+  return `/api/v1/${cleanPath}`;
+};
+
+// Convenience alias used by new pages — identical instance with /api/v1 or /api/admin prefix
 export const apiClient = {
-  get: (path: string, config?: any) => api.get(`/api/v1/${path.replace(/^\//, "")}`, config),
-  post: (path: string, data?: any, config?: any) => api.post(`/api/v1/${path.replace(/^\//, "")}`, data, config),
-  put: (path: string, data?: any, config?: any) => api.put(`/api/v1/${path.replace(/^\//, "")}`, data, config),
-  patch: (path: string, data?: any, config?: any) => api.patch(`/api/v1/${path.replace(/^\//, "")}`, data, config),
-  delete: (path: string, config?: any) => api.delete(`/api/v1/${path.replace(/^\//, "")}`, config),
+  get: (path: string, config?: any) => api.get(getFullPath(path), config),
+  post: (path: string, data?: any, config?: any) => api.post(getFullPath(path), data, config),
+  put: (path: string, data?: any, config?: any) => api.put(getFullPath(path), data, config),
+  patch: (path: string, data?: any, config?: any) => api.patch(getFullPath(path), data, config),
+  delete: (path: string, config?: any) => api.delete(getFullPath(path), config),
 };

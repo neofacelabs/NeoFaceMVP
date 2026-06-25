@@ -132,13 +132,7 @@ class Merchant(Base):
         comment="KYB verification approval timestamp",
     )
 
-    # ── Relationships ─────────────────────────────────────────────────────────
-    transactions: Mapped[list["Transaction"]] = relationship(  # noqa: F821
-        "Transaction",
-        back_populates="merchant",
-        cascade="all, delete-orphan",
-        lazy="select",
-    )
+
 
     def __repr__(self) -> str:
         return f"<Merchant id={self.id} name={self.business_name}>"

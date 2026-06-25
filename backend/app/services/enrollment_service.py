@@ -199,29 +199,30 @@ class EnrollmentService:
         # Mark user as enrolled
         await self.user_repo.mark_enrolled(user.id)
 
-        # Ensure a default bank account is linked to this user for biometric checkout authorization
+        # Update matching Identity records in multitenant AaaS to "enrolled" and link face_embedding_id
         try:
-            from app.repositories.biometric_repositories import BankAccountRepository
-            bank_repo = BankAccountRepository(self.db)
-            existing_banks = await bank_repo.get_by_user(user.id)
-            if not existing_banks:
-                await bank_repo.create(
-                    user_id=user.id,
-                    bank_name="NeoFace Bank",
-                    account_type="checking",
-                    account_mask="9999",
-                    routing_mask="1234",
-                    account_holder_name=user.name,
-                    encrypted_token="mock_stripe_token_for_sandbox",
-                    token_provider="stripe",
-                    external_account_id=f"acc_{uuid.uuid4().hex[:12]}",
-                    currency="USD",
-                    is_default=True,
+            from app.models.identity import Identity
+            from sqlalchemy import update, or_
+            latest_embs = await self.embedding_repo.get_by_user(user.id)
+            if latest_embs:
+                emb_id = latest_embs[0].id
+                stmt = (
+                    update(Identity)
+                    .where(
+                        or_(
+                            Identity.external_user_id == request.email,
+                            Identity.external_user_id.like(f'%"{request.email}"%')
+                        )
+                    )
+                    .values(
+                        enrollment_status="enrolled",
+                        face_embedding_id=emb_id
+                    )
                 )
-                logger.info("Automatically linked default mock bank account during enrollment", user_id=str(user.id))
+                await self.db.execute(stmt)
+                logger.info("Updated matching AaaS Identity status to enrolled", email=request.email, face_embedding_id=str(emb_id))
         except Exception as exc:
-            logger.warning("Failed to auto-link bank account during enrollment", user_id=str(user.id), error=str(exc))
-
+            logger.warning("Failed to update AaaS Identity status during enrollment", email=request.email, error=str(exc))
         EnrollmentLogger.enrollment_completed(str(user.id), avg_quality)
 
         return EnrollmentResponse(

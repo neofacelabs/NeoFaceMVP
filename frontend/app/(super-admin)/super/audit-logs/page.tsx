@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { KPICard, KPIGrid } from "@/components/dashboard/KPICard";
@@ -14,45 +14,10 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { Search, Download, Shield, AlertTriangle, UserX, Lock, Activity, Eye } from "lucide-react";
+import { Search, Download, Shield, AlertTriangle, UserX, Lock, Activity, Eye, Loader2 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { cn } from "@/lib/utils";
-
-type AuditAction =
-  | "login"
-  | "logout"
-  | "enrollment_created"
-  | "enrollment_deleted"
-  | "member_suspended"
-  | "member_reactivated"
-  | "device_added"
-  | "device_removed"
-  | "policy_updated"
-  | "role_changed"
-  | "bulk_import";
-
-interface AuditEntry {
-  id: string;
-  action: AuditAction;
-  actor_name: string;
-  actor_role: string;
-  target?: string;
-  details?: string;
-  ip_address: string;
-  timestamp: string;
-  severity: "info" | "warning" | "critical";
-}
-
-const mockAuditLogs: AuditEntry[] = [
-  { id: "a1", action: "bulk_import", actor_name: "Dr. Riya Nair", actor_role: "Org Admin", target: "847 students", details: "CSV import completed successfully", ip_address: "10.0.1.45", timestamp: new Date(Date.now() - 25 * 60000).toISOString(), severity: "info" },
-  { id: "a2", action: "policy_updated", actor_name: "Arjun Khanna", actor_role: "Super Admin", target: "Liveness threshold", details: "Liveness score threshold updated from 70% to 80%", ip_address: "203.88.12.9", timestamp: new Date(Date.now() - 2 * 3600000).toISOString(), severity: "warning" },
-  { id: "a3", action: "member_suspended", actor_name: "Dr. Riya Nair", actor_role: "Org Admin", target: "Suresh Kumar (2021CS10092)", details: "Repeated failed auth attempts — security hold", ip_address: "10.0.1.45", timestamp: new Date(Date.now() - 4 * 3600000).toISOString(), severity: "critical" },
-  { id: "a4", action: "device_added", actor_name: "Ankit Shah", actor_role: "Tech Admin", target: "Gate Camera B9 (S/N: NCF-2024-0291)", details: "New face camera deployed at Hostel Gate 4", ip_address: "10.0.2.12", timestamp: new Date(Date.now() - 6 * 3600000).toISOString(), severity: "info" },
-  { id: "a5", action: "enrollment_deleted", actor_name: "Dr. Riya Nair", actor_role: "Org Admin", target: "Priya Mehta (2022EE10045)", details: "Biometric data deleted on member request (GDPR)", ip_address: "10.0.1.45", timestamp: new Date(Date.now() - 8 * 3600000).toISOString(), severity: "warning" },
-  { id: "a6", action: "role_changed", actor_name: "Arjun Khanna", actor_role: "Super Admin", target: "Prof. Rajesh Kumar", details: "Role changed from Member to Faculty Admin", ip_address: "203.88.12.9", timestamp: new Date(Date.now() - 12 * 3600000).toISOString(), severity: "info" },
-  { id: "a7", action: "login", actor_name: "Dr. Riya Nair", actor_role: "Org Admin", details: "Admin panel login from new device", ip_address: "10.0.1.45", timestamp: new Date(Date.now() - 24 * 3600000).toISOString(), severity: "info" },
-  { id: "a8", action: "enrollment_created", actor_name: "Enrollment Kiosk", actor_role: "Device", target: "Rahul Sharma (2023CS10201)", details: "Face + fingerprint enrolled at Lab 204 kiosk", ip_address: "10.0.3.8", timestamp: new Date(Date.now() - 26 * 3600000).toISOString(), severity: "info" },
-];
+import { apiClient } from "@/lib/api";
 
 const severityColors = {
   info: { text: "text-[#38BDF8]", bg: "bg-[#38BDF8]/8", dot: "bg-[#38BDF8]" },
@@ -60,26 +25,86 @@ const severityColors = {
   critical: { text: "text-[#f87171]", bg: "bg-[#f87171]/8", dot: "bg-[#f87171]" },
 };
 
-const actionLabels: Record<AuditAction, string> = {
-  login: "Admin Login",
-  logout: "Admin Logout",
-  enrollment_created: "Enrollment Created",
-  enrollment_deleted: "Enrollment Deleted",
-  member_suspended: "Member Suspended",
-  member_reactivated: "Member Reactivated",
-  device_added: "Device Added",
-  device_removed: "Device Removed",
-  policy_updated: "Policy Updated",
-  role_changed: "Role Changed",
-  bulk_import: "Bulk Import",
+const getActionLabel = (action: string) => {
+  const labels: Record<string, string> = {
+    login: "Admin Login",
+    logout: "Admin Logout",
+    enrollment_created: "Enrollment Created",
+    enrollment_deleted: "Enrollment Deleted",
+    member_suspended: "Member Suspended",
+    member_reactivated: "Member Reactivated",
+    device_added: "Device Added",
+    device_removed: "Device Removed",
+    policy_updated: "Policy Updated",
+    role_changed: "Role Changed",
+    bulk_import: "Bulk Import",
+  };
+  return labels[action] || action.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 };
 
 export default function AuditLogsPage() {
-  const [search, setSearch] = React.useState("");
-  const [severityFilter, setSeverityFilter] = React.useState<"all" | "info" | "warning" | "critical">("all");
+  const [search, setSearch] = useState("");
+  const [severityFilter, setSeverityFilter] = useState<"all" | "info" | "warning" | "critical">("all");
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = mockAuditLogs.filter((log) => {
-    const matchSearch = search ? log.actor_name.toLowerCase().includes(search.toLowerCase()) || log.action.includes(search.toLowerCase()) || (log.target ?? "").toLowerCase().includes(search.toLowerCase()) : true;
+  async function loadLogs() {
+    try {
+      const res = await apiClient.get("audit-logs");
+      setLogs(res.data.items || []);
+    } catch (err) {
+      console.error("Failed to load audit logs:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadLogs();
+  }, []);
+
+  const handleExport = async () => {
+    try {
+      const res = await apiClient.get("audit-logs/export", { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `audit-logs-${format(new Date(), "yyyy-MM-dd")}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to export audit logs CSV.");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#00E5A8]" />
+      </div>
+    );
+  }
+
+  const mappedLogs = logs.map((log: any) => {
+    const meta = log.metadata_ || {};
+    const severity = meta.severity || (log.event_type.includes("deleted") || log.event_type.includes("suspended") ? "warning" : "info");
+    return {
+      id: log.id,
+      action: log.event_type,
+      actor_name: meta.actor_name || (log.actor_id ? `User (${log.actor_id.slice(0, 8)})` : "System"),
+      actor_role: meta.actor_role || "Administrator",
+      target: meta.target || log.entity_type || "N/A",
+      details: meta.details || (log.entity_id ? `ID: ${log.entity_id}` : ""),
+      ip_address: log.ip_address || "N/A",
+      timestamp: log.created_at,
+      severity: severity as "info" | "warning" | "critical",
+    };
+  });
+
+  const filtered = mappedLogs.filter((log) => {
+    const matchSearch = search ? log.actor_name.toLowerCase().includes(search.toLowerCase()) || log.action.toLowerCase().includes(search.toLowerCase()) || log.target.toLowerCase().includes(search.toLowerCase()) : true;
     const matchSev = severityFilter === "all" ? true : log.severity === severityFilter;
     return matchSearch && matchSev;
   });
@@ -91,7 +116,7 @@ export default function AuditLogsPage() {
         description="Tamper-proof log of all administrative actions across the platform."
         breadcrumbs={[{ label: "Super Admin", href: "/super" }, { label: "Audit Logs" }]}
         actions={
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs border-white/10 text-white/60 hover:text-white hover:bg-white/[0.05]">
+          <Button variant="outline" size="sm" onClick={handleExport} className="h-8 gap-1.5 text-xs border-white/10 text-white/60 hover:text-white hover:bg-white/[0.05]">
             <Download className="h-3.5 w-3.5" />
             Export CSV
           </Button>
@@ -99,13 +124,14 @@ export default function AuditLogsPage() {
       />
 
       <KPIGrid columns={4}>
-        <KPICard label="Total Events (24h)" value={mockAuditLogs.length} index={0} />
-        <KPICard label="Critical Events" value={mockAuditLogs.filter(l => l.severity === "critical").length} color="error" index={1} />
-        <KPICard label="Warnings" value={mockAuditLogs.filter(l => l.severity === "warning").length} color="warning" index={2} />
-        <KPICard label="Unique Actors" value={new Set(mockAuditLogs.map(l => l.actor_name)).size} index={3} color="accent" />
+        <KPICard label="Total Events" value={mappedLogs.length} index={0} />
+        <KPICard label="Critical Events" value={mappedLogs.filter(l => l.severity === "critical").length} color="error" index={1} />
+        <KPICard label="Warnings" value={mappedLogs.filter(l => l.severity === "warning").length} color="warning" index={2} />
+        <KPICard label="Unique Actors" value={new Set(mappedLogs.map(l => l.actor_name)).size} index={3} color="accent" />
       </KPIGrid>
 
       <ChartCard title="Event Log" description="All administrative actions — immutable audit trail" index={0} className="p-0 overflow-hidden">
+
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.055] p-4">
           <div className="flex flex-1 min-w-[200px] items-center gap-2 rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 focus-within:border-[#00E5A8]/30">
@@ -149,7 +175,7 @@ export default function AuditLogsPage() {
                       {log.severity}
                     </span>
                   </TableCell>
-                  <TableCell className="text-[12px] font-medium text-white/75">{actionLabels[log.action]}</TableCell>
+                  <TableCell className="text-[12px] font-medium text-white/75">{getActionLabel(log.action)}</TableCell>
                   <TableCell>
                     <div>
                       <p className="text-[12px] font-medium text-white/80">{log.actor_name}</p>
