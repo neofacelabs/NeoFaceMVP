@@ -185,3 +185,10 @@ class WebhookService:
         q = q.offset((page - 1) * page_size).limit(page_size)
         deliveries = (await self.db.execute(q)).scalars().all()
         return [WebhookDeliveryResponse.model_validate(d) for d in deliveries], total
+
+    async def delete_endpoint(
+        self, endpoint_id: uuid.UUID, org_id: uuid.UUID
+    ) -> None:
+        endpoint = await self.get_endpoint(endpoint_id, org_id)
+        await self.db.delete(endpoint)
+        await self.db.flush()

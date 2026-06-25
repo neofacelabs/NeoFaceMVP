@@ -58,6 +58,7 @@ from app.api.v1 import (
     webrtc, trust_engine,
     # AaaS
     api_keys, identities, sessions, analytics, audit_logs, webhooks,
+    projects, waitlist,
 )
 from app.api.admin import organizations as admin_orgs
 from app.api.admin import metrics as admin_metrics
@@ -318,6 +319,8 @@ InsightFace • ArcFace • MediaPipe • FastAPI • PostgreSQL • Redis • C
     app.include_router(analytics.router, prefix=API_PREFIX)
     app.include_router(audit_logs.router, prefix=API_PREFIX)
     app.include_router(webhooks.router, prefix=API_PREFIX)
+    app.include_router(projects.router, prefix=API_PREFIX)
+    app.include_router(waitlist.router, prefix=API_PREFIX)
 
     # ── Admin Routers ─────────────────────────────────────────────────────────
     ADMIN_PREFIX = "/api/admin"

@@ -58,7 +58,7 @@ async def _cleanup_challenges_async() -> dict:
         await db.commit()
         deleted = result.rowcount
 
-    logger.info("cleanup.challenges: purged old records", count=deleted, cutoff=cutoff.isoformat())
+    logger.info("cleanup.challenges: purged old records (count=%d, cutoff=%s)", deleted, cutoff.isoformat())
     return {"deleted_challenge_logs": deleted}
 
 
@@ -133,7 +133,7 @@ async def _archive_logs_async() -> dict:
 
         await db.commit()
 
-    logger.info("cleanup.archive: completed", totals=totals)
+    logger.info("cleanup.archive: completed (totals=%s)", str(totals))
     return totals
 
 

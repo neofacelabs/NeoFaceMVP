@@ -80,6 +80,8 @@ export interface UserStats {
   active_users: number;
   enrollment_rate: number;
   as_of: string;
+  orgs_count?: number;
+  apps_count?: number;
 }
 
 export interface VerificationStats {
@@ -203,6 +205,10 @@ export interface PaymentOverview {
   authorization_rate: number;
   modality_breakdown: Record<string, number>;
   as_of: string;
+  avg_latency?: number;
+  threat_anomalies?: number;
+  service_sla?: Record<string, { avg_latency: string; success_rate: string; status: "operational" | "degraded" | "outage" }>;
+  platform_sla?: number;
 }
 
 export interface PaymentDailyStats {
@@ -210,6 +216,11 @@ export interface PaymentDailyStats {
   total_count: number;
   successful_count: number;
   volume: number;
+  enrollment_count?: number;
+  verification_count?: number;
+  liveness_count?: number;
+  session_count?: number;
+  error_count?: number;
 }
 
 // ── Trust Engine — Passive Liveness ──────────────────────────────────────────

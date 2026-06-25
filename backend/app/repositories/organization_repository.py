@@ -16,7 +16,7 @@ from app.models.identity import Identity
 from app.models.auth_session import AuthenticationSession
 from app.models.organization import Organization
 from app.models.org_membership import OrgMembership
-from app.schemas.aaas import OrganizationCreate, OrganizationUpdate
+from app.schemas.aaas import OrganizationCreate, OrganizationUpdate, ApplicationCreate, ApplicationUpdate
 
 
 class OrganizationRepository:
@@ -102,19 +102,51 @@ class OrganizationRepository:
     # ── Application CRUD ──────────────────────────────────────────────────────
 
     async def create_application(
-        self, org_id: uuid.UUID, name: str, environment: str = "production",
-        description: str | None = None
+        self, org_id: uuid.UUID, schema: ApplicationCreate
     ) -> Application:
         app = Application(
             organization_id=org_id,
-            name=name,
-            environment=environment,
-            description=description,
+            name=schema.name,
+            environment=schema.environment,
+            description=schema.description,
+            allowed_origins=schema.allowed_origins,
+            allowed_domains=schema.allowed_domains,
+            webhook_url=schema.webhook_url,
+            rate_limit=schema.rate_limit,
         )
         self.db.add(app)
         await self.db.flush()
         await self.db.refresh(app)
         return app
+
+    async def update_application(
+        self, app_id: uuid.UUID, org_id: uuid.UUID, schema: ApplicationUpdate
+    ) -> Application | None:
+        result = await self.db.execute(
+            select(Application).where(Application.id == app_id, Application.organization_id == org_id)
+        )
+        app = result.scalar_one_or_none()
+        if not app:
+            return None
+        data = schema.model_dump(exclude_none=True)
+        for key, val in data.items():
+            setattr(app, key, val)
+        await self.db.flush()
+        await self.db.refresh(app)
+        return app
+
+    async def delete_application(
+        self, app_id: uuid.UUID, org_id: uuid.UUID
+    ) -> bool:
+        result = await self.db.execute(
+            select(Application).where(Application.id == app_id, Application.organization_id == org_id)
+        )
+        app = result.scalar_one_or_none()
+        if not app:
+            return False
+        await self.db.delete(app)
+        await self.db.flush()
+        return True
 
     async def get_application(self, app_id: uuid.UUID) -> Application | None:
         result = await self.db.execute(

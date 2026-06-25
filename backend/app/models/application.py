@@ -7,7 +7,7 @@ Supports multiple environments (development / staging / production).
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func, JSON, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -52,6 +52,15 @@ class Application(Base):
         comment="active | inactive | archived",
     )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    allowed_origins: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    allowed_domains: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    webhook_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    rate_limit: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=100,
+        server_default="100"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

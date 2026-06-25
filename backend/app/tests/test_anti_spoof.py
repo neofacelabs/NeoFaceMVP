@@ -39,7 +39,9 @@ class TestAntiSpoofServiceHeuristic:
     """Tests for the heuristic fallback scorer (no model required)."""
 
     @pytest.fixture
-    def service(self):
+    def service(self, monkeypatch):
+        from app.services.anti_spoof_service import settings
+        monkeypatch.setattr(settings, "ANTI_SPOOF_ENABLED", True)
         svc = AntiSpoofService()
         # Force heuristic path — no ONNX session
         svc._model_loaded = False

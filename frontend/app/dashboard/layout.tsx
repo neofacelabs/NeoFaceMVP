@@ -5,21 +5,24 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard, AppWindow, Key, Users, Database, Fingerprint,
-  ShieldCheck, Activity, BarChart3, Webhook, BookOpen, Settings,
-  LogOut, ChevronDown, Building2, Globe, ShieldAlert, Cpu, Server,
-  CreditCard, Scan, Zap, Eye, Brain, Lock, AlertTriangle,
-  CheckCircle2, ArrowUpRight, Menu, X,
+  LayoutDashboard, FolderOpen, Key, Users, Activity,
+  BarChart3, Webhook, BookOpen, Settings,
+  LogOut, Fingerprint, ShieldCheck, Eye, Brain,
+  Zap, Server, Lock, Menu, X, Bell,
+  Scan, Cpu, Shield, Globe, Terminal,
+  ChevronRight, Clock, Code2, Building2,
+  ShieldAlert, CreditCard, Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import { useRole } from "@/hooks/use-role";
-import { authApi } from "@/lib/api";
+import { authApi, apiClient } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
 import { firebaseLogout } from "@/lib/firebase-auth";
 import { toast } from "sonner";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   CUSTOMER NAV
+   CUSTOMER NAV — restructured as AaaS platform
    ═══════════════════════════════════════════════════════════════════════════ */
 const CUSTOMER_NAV = [
   {
@@ -29,34 +32,50 @@ const CUSTOMER_NAV = [
     ],
   },
   {
+    section: "Identity APIs",
+    items: [
+      { href: "/dashboard/face-recognition", icon: Scan, label: "Face Recognition" },
+      { href: "/dashboard/fingerprint", icon: Fingerprint, label: "Fingerprint" },
+      { href: "/dashboard/trust-engine", icon: Shield, label: "Trust Engine" },
+    ],
+  },
+  {
     section: "Build",
     items: [
-      { href: "/dashboard/applications", icon: AppWindow,  label: "Applications" },
-      { href: "/dashboard/api-keys",     icon: Key,         label: "API Keys" },
-      { href: "/dashboard/users",        icon: Users,       label: "Users" },
-      { href: "/dashboard/identity",     icon: Database,    label: "Identity Store" },
+      { href: "/dashboard/projects", icon: FolderOpen, label: "Projects" },
+      { href: "/dashboard/api-keys", icon: Key, label: "API Keys" },
+      { href: "/dashboard/webhooks", icon: Webhook, label: "Webhooks" },
     ],
   },
   {
     section: "Observe",
     items: [
-      { href: "/dashboard/sessions",     icon: Activity,    label: "Auth Sessions" },
-      { href: "/dashboard/analytics",    icon: BarChart3,   label: "Analytics" },
-      { href: "/dashboard/logs",         icon: Eye,         label: "Audit Logs" },
+      { href: "/dashboard/logs", icon: Activity, label: "Auth Logs" },
+      { href: "/dashboard/analytics", icon: BarChart3, label: "Analytics" },
+      { href: "/dashboard/sessions", icon: Lock, label: "Sessions" },
     ],
   },
   {
-    section: "Connect",
+    section: "Developer",
     items: [
-      { href: "/dashboard/webhooks",     icon: Webhook,     label: "Webhooks" },
-      { href: "/dashboard/trust-engine", icon: ShieldCheck, label: "Trust Engine" },
-      { href: "/dashboard/fingerprint",  icon: Fingerprint, label: "Passkeys (WebAuthn)" },
+      { href: "/dashboard/sdk-playground", icon: Terminal, label: "SDK Playground" },
+      { href: "/dashboard/documentation", icon: BookOpen, label: "Documentation" },
+    ],
+  },
+  {
+    section: "Coming Soon",
+    items: [
+      { href: "/dashboard/coming-soon/voice-auth", icon: Zap, label: "Voice Auth", comingSoon: true },
+      { href: "/dashboard/coming-soon/iris-recognition", icon: Eye, label: "Iris Recognition", comingSoon: true },
+      { href: "/dashboard/coming-soon/adaptive-mfa", icon: Brain, label: "Adaptive MFA", comingSoon: true },
+      { href: "/dashboard/coming-soon/enterprise-sso", icon: Globe, label: "Enterprise SSO", comingSoon: true },
     ],
   },
   {
     section: "Account",
     items: [
-      { href: "/dashboard/settings",     icon: Settings,    label: "Settings" },
+      { href: "/dashboard/settings", icon: Settings, label: "Settings" },
+      { href: "/dashboard/coming-soon/billing", icon: CreditCard, label: "Billing", comingSoon: true },
     ],
   },
 ];
@@ -68,41 +87,42 @@ const ADMIN_NAV = [
   {
     section: "Overview",
     items: [
-      { href: "/dashboard",              icon: LayoutDashboard, label: "Command Center", exact: true },
+      { href: "/dashboard", icon: LayoutDashboard, label: "Command Center", exact: true },
     ],
   },
   {
     section: "Platform",
     items: [
-      { href: "/dashboard/users",        icon: Building2,   label: "Organizations" },
-      { href: "/dashboard/applications", icon: AppWindow,   label: "Applications" },
-      { href: "/dashboard/identity",     icon: Database,    label: "Identity Storage" },
+      { href: "/dashboard/users", icon: Users, label: "User Management" },
+      { href: "/dashboard/projects", icon: FolderOpen, label: "Applications" },
+      { href: "/dashboard/identity", icon: Layers, label: "Identity Storage" },
+    ],
+  },
+  {
+    section: "APIs",
+    items: [
+      { href: "/dashboard/face-recognition", icon: Scan, label: "Face Recognition" },
+      { href: "/dashboard/fingerprint", icon: Fingerprint, label: "Fingerprint (WebAuthn)" },
+      { href: "/dashboard/liveness", icon: Eye, label: "Liveness Detection" },
+      { href: "/dashboard/trust-engine", icon: Shield, label: "Trust Engine" },
     ],
   },
   {
     section: "Monitoring",
     items: [
-      { href: "/dashboard/analytics",    icon: BarChart3,   label: "API Monitoring" },
-      { href: "/dashboard/risk",         icon: ShieldAlert, label: "Fraud Center" },
-      { href: "/dashboard/models",       icon: Brain,       label: "Model Monitoring" },
+      { href: "/dashboard/analytics", icon: BarChart3, label: "API Monitoring" },
+      { href: "/dashboard/risk", icon: ShieldAlert, label: "Fraud Center" },
+      { href: "/dashboard/models", icon: Brain, label: "Model Monitoring" },
+      { href: "/dashboard/logs", icon: Activity, label: "Audit Logs" },
     ],
   },
   {
     section: "Operations",
     items: [
-      { href: "/dashboard/infrastructure", icon: Server,   label: "Infrastructure" },
-      { href: "/dashboard/logs",           icon: Activity,  label: "Audit Logs" },
-      { href: "/dashboard/bank-accounts",  icon: CreditCard, label: "Billing" },
-    ],
-  },
-  {
-    section: "Admin",
-    items: [
-      { href: "/dashboard/trust-engine", icon: ShieldCheck, label: "Trust Engine" },
-      { href: "/dashboard/active-liveness", icon: Scan,    label: "Liveness Lab" },
-      { href: "/dashboard/behavioral",   icon: Zap,        label: "Behavioral" },
-      { href: "/dashboard/continuous-auth", icon: Lock,    label: "Continuous Auth" },
-      { href: "/dashboard/settings",     icon: Settings,    label: "Settings" },
+      { href: "/dashboard/infrastructure", icon: Server, label: "Infrastructure" },
+      { href: "/dashboard/sdk-playground", icon: Terminal, label: "SDK Playground" },
+      { href: "/dashboard/documentation", icon: BookOpen, label: "Documentation" },
+      { href: "/dashboard/settings", icon: Settings, label: "Settings" },
     ],
   },
 ];
@@ -111,24 +131,30 @@ const ADMIN_NAV = [
    NAV ITEM
    ═══════════════════════════════════════════════════════════════════════════ */
 function NavItem({
-  href, icon: Icon, label, active,
+  href, icon: Icon, label, active, comingSoon,
 }: {
-  href: string; icon: any; label: string; active: boolean;
+  href: string; icon: any; label: string; active: boolean; comingSoon?: boolean;
 }) {
   return (
-    <Link href={href} className={cn("nav-item", active && "active")}>
+    <Link href={href} className={cn("nav-item", active && "active", comingSoon && "opacity-60")}>
       <span
         className="w-[18px] h-[18px] flex items-center justify-center shrink-0"
-        style={{ color: active ? "#00C2FF" : "rgba(255,255,255,0.35)" }}
+        style={{ color: active ? "#00C2FF" : comingSoon ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.35)" }}
       >
         <Icon size={13} />
       </span>
-      <span className="truncate">{label}</span>
+      <span className="truncate flex-1">{label}</span>
       {active && (
         <span
           className="ml-auto w-1.5 h-1.5 rounded-full shrink-0"
           style={{ background: "#00C2FF", boxShadow: "0 0 5px #00C2FF" }}
         />
+      )}
+      {comingSoon && !active && (
+        <span className="ml-auto text-[8px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded-full shrink-0"
+          style={{ background: "rgba(129,140,248,0.1)", color: "#818cf8", border: "1px solid rgba(129,140,248,0.15)" }}>
+          Soon
+        </span>
       )}
     </Link>
   );
@@ -153,6 +179,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [time, setTime] = useState("");
   const [hydrated, setHydrated] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   /* ── Hydration guard ─────────────────────────────────────────────────── */
   useEffect(() => {
@@ -190,6 +217,51 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const nav = isAdmin ? ADMIN_NAV : CUSTOMER_NAV;
 
+  const { data: notifsData } = useQuery<{ items: any[] }>({
+    queryKey: ["header-notifications"],
+    queryFn: () => apiClient.get("audit-logs?page=1&page_size=5").then(r => r.data),
+    refetchInterval: 15_000,
+    retry: false,
+  });
+
+  const realNotifs = (notifsData?.items ?? []).map((item: any) => {
+    let type = "info";
+    const event = item.event_type || "";
+    let title = event.replace(/\./g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+    
+    if (event.includes("failed") || event.includes("error")) {
+      type = "error";
+    } else if (event.includes("passed") || event.includes("verified") || event.includes("enrolled")) {
+      type = "success";
+    } else if (event.includes("warn") || event.includes("rotated") || event.includes("revoked")) {
+      type = "warning";
+    }
+
+    const diffMs = Date.now() - new Date(item.created_at).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHrs = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHrs / 24);
+    
+    let timeStr = "Just now";
+    if (diffDays > 0) timeStr = `${diffDays}d ago`;
+    else if (diffHrs > 0) timeStr = `${diffHrs}h ago`;
+    else if (diffMins > 0) timeStr = `${diffMins}m ago`;
+
+    return {
+      id: item.id,
+      type,
+      title,
+      desc: item.actor_id ? `User: ${item.actor_id.slice(0, 8)}...` : "System operation",
+      time: timeStr
+    };
+  });
+
+  const MOCK_NOTIFS = realNotifs.length > 0 ? realNotifs : [
+    { id: 1, type: "success", title: "Enrollment Complete", desc: "user_8f3a enrolled successfully", time: "2m ago" },
+    { id: 2, type: "warning", title: "Risk Alert", desc: "Suspicious activity from 192.168.1.1", time: "14m ago" },
+    { id: 3, type: "error", title: "Webhook Failed", desc: "POST to https://api.company.com failed (503)", time: "1h ago" },
+  ];
+
   const Sidebar = (
     <aside
       className="flex flex-col h-full"
@@ -218,7 +290,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             border: isAdmin ? "1px solid rgba(129,140,248,0.2)" : "1px solid rgba(0,194,255,0.2)",
           }}
         >
-          {isAdmin ? "ADMIN" : "LABS"}
+          {isAdmin ? "ADMIN" : "v1"}
         </div>
       </div>
 
@@ -230,14 +302,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         >
           <span className="status-dot-live shrink-0" />
           <span className="text-[10.5px] text-[rgba(0,229,168,0.75)] font-medium flex-1">
-            {isAdmin ? "Operations Live" : "Production"}
+            {isAdmin ? "Operations Live" : "All systems operational"}
           </span>
           <span className="text-[9px] text-[rgba(255,255,255,0.2)] font-mono">{time}</span>
         </div>
       </div>
 
       {/* ── Navigation ── */}
-      <nav className="flex-1 overflow-y-auto px-2.5 pb-3 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto px-2.5 pb-3 space-y-0.5 scrollbar-thin">
         {nav.map((group) => (
           <div key={group.section}>
             <NavSection label={group.section} />
@@ -248,6 +320,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 icon={item.icon}
                 label={item.label}
                 active={isActive(item.href, (item as any).exact)}
+                comingSoon={(item as any).comingSoon}
               />
             ))}
           </div>
@@ -341,15 +414,98 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* ── Main content ── */}
       <main className="flex-1 lg:ml-[220px] min-h-screen relative z-10 flex flex-col">
-        {/* Mobile header */}
+        {/* Mobile + Desktop top bar */}
         <div
-          className="flex lg:hidden items-center gap-3 px-4 h-14 shrink-0"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(5,5,5,0.95)" }}
+          className="flex items-center gap-3 px-4 lg:px-6 h-14 shrink-0 sticky top-0 z-20"
+          style={{
+            borderBottom: "1px solid rgba(255,255,255,0.05)",
+            background: "rgba(5,5,5,0.95)",
+            backdropFilter: "blur(12px)",
+          }}
         >
-          <button onClick={() => setMobileOpen(true)}>
+          <button onClick={() => setMobileOpen(true)} className="lg:hidden">
             <Menu size={18} className="text-[rgba(255,255,255,0.5)]" />
           </button>
-          <Image src="/NeoFaceLogoFinal.png" alt="NeoFace" width={100} height={30} className="h-6 w-auto" />
+          <Image src="/NeoFaceLogoFinal.png" alt="NeoFace" width={100} height={30} className="h-6 w-auto lg:hidden" />
+
+          {/* Breadcrumb */}
+          <div className="hidden lg:flex items-center gap-1.5 text-[12px]">
+            <span style={{ color: "rgba(255,255,255,0.25)" }}>NeoFace</span>
+            <ChevronRight size={10} style={{ color: "rgba(255,255,255,0.15)" }} />
+            <span style={{ color: "rgba(255,255,255,0.6)" }}>
+              {pathname.split("/").pop()?.replace(/-/g, " ")
+                .replace(/\b\w/g, c => c.toUpperCase()) || "Dashboard"}
+            </span>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            {/* Status chip */}
+            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-medium"
+              style={{ background: "rgba(0,229,168,0.06)", border: "1px solid rgba(0,229,168,0.12)", color: "#00E5A8" }}>
+              <span className="status-dot-live" />
+              Production
+            </div>
+
+            {/* Notifications */}
+            <div className="relative">
+              <button
+                onClick={() => setNotifOpen(o => !o)}
+                className="relative w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                <Bell size={13} style={{ color: "rgba(255,255,255,0.5)" }} />
+                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#f87171]" />
+              </button>
+
+              <AnimatePresence>
+                {notifOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-10 w-80 rounded-2xl overflow-hidden z-50"
+                    style={{ background: "rgba(12,12,12,0.98)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 60px rgba(0,0,0,0.8)" }}
+                  >
+                    <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                      <p className="text-[13px] font-semibold text-white">Notifications</p>
+                      <button className="text-[11px]" style={{ color: "#00C2FF" }}>Mark all read</button>
+                    </div>
+                    <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                      {MOCK_NOTIFS.map(n => (
+                        <div key={n.id} className="px-4 py-3 hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-1.5 h-1.5 mt-1.5 rounded-full shrink-0"
+                              style={{ background: n.type === "success" ? "#00E5A8" : n.type === "warning" ? "#fbbf24" : "#f87171" }} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12.5px] font-medium text-white">{n.title}</p>
+                              <p className="text-[11px] mt-0.5 truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{n.desc}</p>
+                            </div>
+                            <span className="text-[10px] shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>{n.time}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="px-4 py-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                      <button className="text-[11.5px] text-center w-full" style={{ color: "rgba(0,194,255,0.7)" }}>
+                        View all notifications
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Avatar */}
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-bold"
+              style={{
+                background: isAdmin ? "rgba(129,140,248,0.12)" : "rgba(0,194,255,0.1)",
+                color: isAdmin ? "#818cf8" : "#00C2FF",
+                border: isAdmin ? "1px solid rgba(129,140,248,0.2)" : "1px solid rgba(0,194,255,0.15)",
+              }}>
+              {user?.name?.[0]?.toUpperCase() ?? "U"}
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 p-6 lg:p-8 page-in">

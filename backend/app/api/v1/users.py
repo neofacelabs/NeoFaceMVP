@@ -81,15 +81,25 @@ async def get_user(
 @router.patch(
     "/{user_id}",
     response_model=UserResponse,
-    summary="Update user profile (admin only)",
+    summary="Update user profile",
 )
 async def update_user(
     user_id: uuid.UUID,
     schema: UserUpdate,
-    token_data: TokenData = Depends(require_admin),
+    token_data: TokenData = Depends(get_current_user_token),
     db: AsyncSession = Depends(get_db),
 ) -> UserResponse:
-    """Partially update a user's profile fields. Admin role required."""
+    """Partially update a user's profile fields. Users can update their own profile; admins can update any."""
+    if token_data.role != "admin" and str(user_id) != token_data.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this profile",
+        )
+    
+    # Non-admins cannot modify active status
+    if token_data.role != "admin":
+        schema.is_active = None
+
     user_repo = UserRepository(db)
     user = await user_repo.update(user_id, schema)
 

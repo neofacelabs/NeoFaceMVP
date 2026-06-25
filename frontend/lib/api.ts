@@ -9,7 +9,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 // ── Main API instance ────────────────────────────────────────────────────────
 export const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 30_000,
+  timeout: 90_000,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -335,6 +335,15 @@ export const trustEngineApi = {
    * Check whether the logged-in user has enrolled face data for the Trust Engine.
    * Used to show the enrollment gate if face is not yet registered.
    */
-  getEnrollmentStatus: () =>
+   getEnrollmentStatus: () =>
     api.get("/api/v1/trust-engine/enrollment-status"),
+};
+
+// Convenience alias used by new pages — identical instance with /api/v1 prefix
+export const apiClient = {
+  get: (path: string, config?: any) => api.get(`/api/v1/${path.replace(/^\//, "")}`, config),
+  post: (path: string, data?: any, config?: any) => api.post(`/api/v1/${path.replace(/^\//, "")}`, data, config),
+  put: (path: string, data?: any, config?: any) => api.put(`/api/v1/${path.replace(/^\//, "")}`, data, config),
+  patch: (path: string, data?: any, config?: any) => api.patch(`/api/v1/${path.replace(/^\//, "")}`, data, config),
+  delete: (path: string, config?: any) => api.delete(`/api/v1/${path.replace(/^\//, "")}`, config),
 };

@@ -6,8 +6,8 @@ import Link from "next/link";
 /* ─── Pricing Tiers ─────────────────────────────────────────────────────── */
 const TIERS = [
   {
-    id: "free",
-    name: "Free",
+    id: "starter",
+    name: "Starter",
     price: "$0",
     period: "forever",
     description: "For developers exploring the API and building prototypes.",
@@ -20,44 +20,16 @@ const TIERS = [
     ctaStyle: "ghost",
     features: [
       "Face authentication",
-      "Fingerprint authentication",
+      "Fingerprint authentication (WebAuthn)",
       "REST API access",
-      "Basic liveness detection",
+      "Liveness detection",
       "Community support",
       "99.9% uptime SLA",
     ],
     notIncluded: [
-      "Iris authentication",
-      "Risk scoring engine",
+      "Trust Engine & risk scoring",
       "Webhooks & events",
-      "Custom branding",
-    ],
-  },
-  {
-    id: "starter",
-    name: "Starter",
-    price: "$49",
-    period: "per month",
-    description: "For startups launching biometric auth in production apps.",
-    verifications: "10,000 / mo",
-    color: "rgba(0,229,168,0.04)",
-    borderColor: "rgba(0,229,168,0.18)",
-    accentColor: "#00E5A8",
-    badge: null,
-    cta: "Get API Key",
-    ctaStyle: "accent",
-    features: [
-      "All Free features",
-      "Iris authentication",
-      "Basic risk scoring",
-      "Webhooks & events",
-      "Email support (48h SLA)",
-      "SDK for iOS, Android & Web",
-    ],
-    notIncluded: [
-      "Advanced risk scoring",
-      "Custom branding",
-      "SSO & SAML",
+      "Custom domains",
     ],
   },
   {
@@ -65,23 +37,24 @@ const TIERS = [
     name: "Pro",
     price: "$149",
     period: "per month",
-    description: "For scaling products that need advanced security and compliance.",
-    verifications: "50,000 / mo",
+    description: "For growing teams shipping production identity infrastructure.",
+    verifications: "100,000 / mo",
     color: "rgba(0,229,168,0.06)",
     borderColor: "rgba(0,229,168,0.35)",
     accentColor: "#00E5A8",
     badge: "Most Popular",
-    cta: "Get API Key",
+    cta: "Start Pro Trial",
     ctaStyle: "primary",
     features: [
       "All Starter features",
-      "Advanced risk scoring engine",
-      "Custom branding & white-label",
-      "SSO & SAML integration",
-      "Priority support (12h SLA)",
-      "SOC 2 Type II access",
-      "GDPR data processing agreement",
-      "Analytics dashboard",
+      "Trust Engine & risk scoring",
+      "Device fingerprinting",
+      "5 projects",
+      "Webhooks",
+      "Analytics & logs",
+      "Priority support",
+      "Custom domains",
+      "99.95% uptime SLA",
     ],
     notIncluded: [],
   },
@@ -89,8 +62,8 @@ const TIERS = [
     id: "enterprise",
     name: "Enterprise",
     price: "Custom",
-    period: "contact us",
-    description: "For enterprises that need custom SLAs, on-prem, and dedicated infra.",
+    period: "contact sales",
+    description: "For organizations requiring enterprise-grade identity infrastructure at scale.",
     verifications: "Unlimited",
     color: "rgba(0,194,255,0.04)",
     borderColor: "rgba(0,194,255,0.2)",
@@ -100,13 +73,14 @@ const TIERS = [
     ctaStyle: "blue",
     features: [
       "All Pro features",
-      "On-premises deployment option",
       "Dedicated infrastructure",
-      "Custom SLA & uptime guarantees",
-      "24/7 dedicated support",
-      "Custom ML model fine-tuning",
-      "Volume discounts",
-      "SOC 2 / ISO 27001 / HIPAA",
+      "SSO & SAML (coming soon)",
+      "Custom SLA (99.99% SLA)",
+      "Dedicated success manager",
+      "SOC 2 Type II reports",
+      "Audit logs (SIEM export)",
+      "Custom model fine-tuning",
+      "On-premises deployment",
     ],
     notIncluded: [],
   },
@@ -117,51 +91,51 @@ const FEATURE_TABLE = [
   {
     category: "Authentication",
     rows: [
-      { feature: "Face authentication", free: true, starter: true, pro: true, enterprise: true },
-      { feature: "Fingerprint authentication", free: true, starter: true, pro: true, enterprise: true },
-      { feature: "Iris authentication", free: false, starter: true, pro: true, enterprise: true },
-      { feature: "Liveness detection", free: "Basic", starter: "Advanced", pro: "Advanced", enterprise: "Custom" },
-      { feature: "Anti-spoofing", free: true, starter: true, pro: true, enterprise: true },
+      { feature: "Face authentication", starter: true, pro: true, enterprise: true },
+      { feature: "Fingerprint authentication", starter: true, pro: true, enterprise: true },
+      { feature: "Iris authentication", starter: false, pro: false, enterprise: true },
+      { feature: "Liveness detection", starter: "Basic", pro: "Advanced", enterprise: "Custom" },
+      { feature: "Anti-spoofing", starter: true, pro: true, enterprise: true },
     ],
   },
   {
     category: "Security",
     rows: [
-      { feature: "Risk scoring engine", free: false, starter: "Basic", pro: "Advanced", enterprise: "Custom AI" },
-      { feature: "Anomaly detection", free: false, starter: false, pro: true, enterprise: true },
-      { feature: "SOC 2 Type II", free: false, starter: false, pro: true, enterprise: true },
-      { feature: "GDPR DPA", free: false, starter: false, pro: true, enterprise: true },
-      { feature: "HIPAA compliance", free: false, starter: false, pro: false, enterprise: true },
+      { feature: "Risk scoring engine", starter: false, pro: "Advanced", enterprise: "Custom AI" },
+      { feature: "Anomaly detection", starter: false, pro: true, enterprise: true },
+      { feature: "SOC 2 Type II", starter: false, pro: true, enterprise: true },
+      { feature: "GDPR DPA", starter: false, pro: true, enterprise: true },
+      { feature: "HIPAA compliance", starter: false, pro: false, enterprise: true },
     ],
   },
   {
     category: "Developer",
     rows: [
-      { feature: "REST API", free: true, starter: true, pro: true, enterprise: true },
-      { feature: "GraphQL API", free: false, starter: false, pro: true, enterprise: true },
-      { feature: "iOS & Android SDKs", free: false, starter: true, pro: true, enterprise: true },
-      { feature: "Web SDK", free: true, starter: true, pro: true, enterprise: true },
-      { feature: "Webhooks & events", free: false, starter: true, pro: true, enterprise: true },
-      { feature: "SSO / SAML", free: false, starter: false, pro: true, enterprise: true },
+      { feature: "REST API", starter: true, pro: true, enterprise: true },
+      { feature: "GraphQL API", starter: false, pro: true, enterprise: true },
+      { feature: "iOS & Android SDKs", starter: true, pro: true, enterprise: true },
+      { feature: "Web SDK", starter: true, pro: true, enterprise: true },
+      { feature: "Webhooks & events", starter: false, pro: true, enterprise: true },
+      { feature: "SSO / SAML", starter: false, pro: false, enterprise: true },
     ],
   },
   {
     category: "Platform",
     rows: [
-      { feature: "Monthly verifications", free: "1,000", starter: "10,000", pro: "50,000", enterprise: "Unlimited" },
-      { feature: "Analytics dashboard", free: false, starter: false, pro: true, enterprise: true },
-      { feature: "Custom branding", free: false, starter: false, pro: true, enterprise: true },
-      { feature: "On-premises option", free: false, starter: false, pro: false, enterprise: true },
-      { feature: "Dedicated infra", free: false, starter: false, pro: false, enterprise: true },
+      { feature: "Monthly verifications", starter: "1,000", pro: "100,000", enterprise: "Unlimited" },
+      { feature: "Analytics dashboard", starter: false, pro: true, enterprise: true },
+      { feature: "Custom branding", starter: false, pro: true, enterprise: true },
+      { feature: "On-premises option", starter: false, pro: false, enterprise: true },
+      { feature: "Dedicated infra", starter: false, pro: false, enterprise: true },
     ],
   },
   {
     category: "Support",
     rows: [
-      { feature: "Community support", free: true, starter: true, pro: true, enterprise: true },
-      { feature: "Email support", free: false, starter: "48h SLA", pro: "12h SLA", enterprise: "4h SLA" },
-      { feature: "Slack / Teams channel", free: false, starter: false, pro: true, enterprise: true },
-      { feature: "24/7 dedicated support", free: false, starter: false, pro: false, enterprise: true },
+      { feature: "Community support", starter: true, pro: true, enterprise: true },
+      { feature: "Email support", starter: false, pro: "12h SLA", enterprise: "4h SLA" },
+      { feature: "Slack / Teams channel", starter: false, pro: true, enterprise: true },
+      { feature: "24/7 dedicated support", starter: false, pro: false, enterprise: true },
     ],
   },
 ];
@@ -178,7 +152,7 @@ const FAQ = [
   },
   {
     q: "Can I try the API before paying?",
-    a: "Absolutely. Our Free plan gives you 1,000 verifications per month, forever. No credit card required to get started. Just sign up and grab your API key.",
+    a: "Absolutely. Our Starter plan gives you 1,000 verifications per month, forever. No credit card required to get started. Just sign up and grab your API key.",
   },
   {
     q: "Is biometric data stored on your servers?",
@@ -220,7 +194,7 @@ function CellValue({ value, accentColor = "#00E5A8" }: { value: boolean | string
 }
 
 /* ─── Tier Card ──────────────────────────────────────────────────────────── */
-function TierCard({ tier, index }: { tier: typeof TIERS[0]; index: number }) {
+function TierCard({ tier, index }: { tier: any; index: number }) {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
   const isPrimary = tier.ctaStyle === "primary";
@@ -271,7 +245,7 @@ function TierCard({ tier, index }: { tier: typeof TIERS[0]; index: number }) {
               {tier.price}
             </span>
             {tier.price !== "Custom" && (
-              <span className="text-[13px] text-white/30 mb-1.5 font-mono">{tier.period}</span>
+              <span className="text-[13px] text-white/30 mb-1.5 font-mono">/{tier.period}</span>
             )}
           </div>
           <p className="text-[13px] text-white/40 leading-[1.6]">{tier.description}</p>
@@ -286,19 +260,19 @@ function TierCard({ tier, index }: { tier: typeof TIERS[0]; index: number }) {
             <path d="M7 1l1.5 3.5L12 5.5l-2.5 2.5.6 3.5L7 9.8 3.9 11.5l.6-3.5L2 5.5l3.5-1L7 1z" stroke={tier.accentColor} strokeWidth="0.9" strokeLinejoin="round" />
           </svg>
           <span className="text-[11px] font-mono font-semibold" style={{ color: tier.accentColor }}>
-            {tier.verifications} verifications
+            {tier.verifications}
           </span>
         </div>
 
         {/* Features */}
         <ul className="space-y-2.5 flex-1 mb-7">
-          {tier.features.map((f) => (
+          {tier.features.map((f: string) => (
             <li key={f} className="flex items-start gap-2.5 text-[13px] text-white/65">
               <CheckIcon color={tier.accentColor} />
               <span>{f}</span>
             </li>
           ))}
-          {tier.notIncluded.map((f) => (
+          {tier.notIncluded.map((f: string) => (
             <li key={f} className="flex items-start gap-2.5 text-[13px] text-white/20 line-through">
               <XIcon />
               <span>{f}</span>
@@ -307,7 +281,7 @@ function TierCard({ tier, index }: { tier: typeof TIERS[0]; index: number }) {
         </ul>
 
         {/* CTA */}
-        <Link href={tier.id === "enterprise" ? "mailto:sales@neoface.io" : "/enroll"}>
+        <Link href={tier.id === "enterprise" ? "mailto:sales@neoface.io" : "/register"}>
           <motion.button
             whileHover={{ scale: 1.02, filter: "brightness(1.1)" }}
             whileTap={{ scale: 0.98 }}
@@ -349,7 +323,7 @@ function FeatureTable() {
             <th className="text-left py-4 pr-6 text-[12px] text-white/30 font-medium uppercase tracking-widest w-[40%]">
               Features
             </th>
-            {["Free", "Starter", "Pro", "Enterprise"].map((t, i) => (
+            {["Starter", "Pro", "Enterprise"].map((t, i) => (
               <th key={t} className="text-center py-4 px-3 text-[12px] font-semibold" style={{
                 color: t === "Pro" ? "#00E5A8" : t === "Enterprise" ? "#00C2FF" : "rgba(255,255,255,0.5)"
               }}>
@@ -363,7 +337,7 @@ function FeatureTable() {
             <Fragment key={section.category}>
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={4}
                   className="py-3 pt-7 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/25"
                 >
                   {section.category}
@@ -377,22 +351,17 @@ function FeatureTable() {
                   <td className="py-3.5 pr-6 text-[13px] text-white/55">{row.feature}</td>
                   <td className="py-3.5 px-3 text-center">
                     <div className="flex justify-center">
-                      <CellValue value={row.free} accentColor="rgba(255,255,255,0.6)" />
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-3 text-center">
-                    <div className="flex justify-center">
-                      <CellValue value={row.starter} accentColor="#00E5A8" />
+                      <CellValue value={(row as any).starter} accentColor="rgba(255,255,255,0.6)" />
                     </div>
                   </td>
                   <td className="py-3.5 px-3 text-center bg-[rgba(0,229,168,0.02)]">
                     <div className="flex justify-center">
-                      <CellValue value={row.pro} accentColor="#00E5A8" />
+                      <CellValue value={(row as any).pro} accentColor="#00E5A8" />
                     </div>
                   </td>
                   <td className="py-3.5 px-3 text-center">
                     <div className="flex justify-center">
-                      <CellValue value={row.enterprise} accentColor="#00C2FF" />
+                      <CellValue value={(row as any).enterprise} accentColor="#00C2FF" />
                     </div>
                   </td>
                 </tr>

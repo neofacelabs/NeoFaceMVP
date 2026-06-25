@@ -9,10 +9,10 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 
 const NAV = [
-  { label: "Features",    href: "#product" },
-  { label: "Developers",  href: "#developers" },
-  { label: "Security",    href: "#security" },
-  { label: "Pricing",     href: "/pricing" },
+  { label: "Features",    href: "/#product" },
+  { label: "Developers",  href: "/#developers" },
+  { label: "Security",    href: "/#security" },
+  { label: "Pricing",     href: "/#pricing" },
 ];
 
 export function Navbar() {

@@ -78,3 +78,17 @@ async def list_deliveries(
     svc = WebhookService(db)
     deliveries, total = await svc.list_deliveries(endpoint_id, ctx.org_id, page=page, page_size=page_size)
     return PagedResponse(total=total, page=page, page_size=page_size, items=deliveries)
+
+
+@router.delete(
+    "/{endpoint_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a webhook endpoint",
+)
+async def delete_webhook(
+    endpoint_id: uuid.UUID,
+    ctx: OrgContext = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    svc = WebhookService(db)
+    await svc.delete_endpoint(endpoint_id, ctx.org_id)

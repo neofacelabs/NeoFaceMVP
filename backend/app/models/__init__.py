@@ -44,6 +44,7 @@ from app.models.usage_record import UsageRecord
 from app.models.audit_event import AuditEvent
 from app.models.webhook import WebhookEndpoint, WebhookDelivery
 from app.models.model_version import ModelVersion
+from app.models.waitlist_entry import WaitlistEntry
 
 __all__ = [
     # Core
@@ -83,4 +84,5 @@ __all__ = [
     "WebhookEndpoint",
     "WebhookDelivery",
     "ModelVersion",
+    "WaitlistEntry",
 ]

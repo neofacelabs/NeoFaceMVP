@@ -328,12 +328,28 @@ function LiveFaceCapture({
 
   const doCapture = () => {
     if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
     const cv = canvasRef.current;
-    cv.width = videoRef.current.videoWidth;
-    cv.height = videoRef.current.videoHeight;
+    
+    const maxDim = 640;
+    let w = video.videoWidth;
+    let h = video.videoHeight;
+    if (w > maxDim || h > maxDim) {
+      if (w > h) {
+        h = Math.round((h * maxDim) / w);
+        w = maxDim;
+      } else {
+        w = Math.round((w * maxDim) / h);
+        h = maxDim;
+      }
+    }
+    
+    cv.width = w;
+    cv.height = h;
     const ctx = cv.getContext("2d")!;
-    ctx.drawImage(videoRef.current, 0, 0);
-    const dataUrl = cv.toDataURL("image/jpeg", 0.9);
+    ctx.drawImage(video, 0, 0, w, h);
+    
+    const dataUrl = cv.toDataURL("image/jpeg", 0.85);
     cv.toBlob(async (blob) => {
       if (!blob) return;
 
@@ -370,12 +386,13 @@ function LiveFaceCapture({
           toast.error(errMsg, { id: validateToastId });
         }
       } catch (err: any) {
+        console.error("Frame validation error:", err);
         const errMsg = extractErrorMsg(err, "Frame validation failed. Please check your network and try again.");
         toast.error(errMsg, { id: validateToastId });
       } finally {
         setIsValidating(false);
       }
-    }, "image/jpeg", 0.9);
+    }, "image/jpeg", 0.85);
   };
 
   const reset = () => {

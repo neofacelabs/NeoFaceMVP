@@ -64,6 +64,10 @@ class ApplicationCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     environment: str = Field(default="production")
     description: str | None = None
+    allowed_origins: list[str] | None = None
+    allowed_domains: list[str] | None = None
+    webhook_url: str | None = None
+    rate_limit: int = Field(default=100)
 
 
 class ApplicationUpdate(BaseModel):
@@ -71,6 +75,10 @@ class ApplicationUpdate(BaseModel):
     environment: str | None = None
     status: str | None = None
     description: str | None = None
+    allowed_origins: list[str] | None = None
+    allowed_domains: list[str] | None = None
+    webhook_url: str | None = None
+    rate_limit: int | None = None
 
 
 class ApplicationResponse(BaseModel):
@@ -82,6 +90,10 @@ class ApplicationResponse(BaseModel):
     environment: str
     status: str
     description: str | None
+    allowed_origins: list[str] | None
+    allowed_domains: list[str] | None
+    webhook_url: str | None
+    rate_limit: int
     created_at: datetime
     updated_at: datetime
 
