@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { KPICard, KPIGrid } from "@/components/dashboard/KPICard";
@@ -206,9 +207,11 @@ export default function MemberIdentityPage() {
                       </div>
                     )}
                     {!bio.enrolled && (
-                      <Button size="sm" className="mt-3 h-7 w-full gap-1.5 text-[11px]">
-                        Enroll Now
-                      </Button>
+                      <Link href="/me/biometrics" className="mt-3 block w-full">
+                        <Button size="sm" className="h-7 w-full gap-1.5 text-[11px]">
+                          Enroll Now
+                        </Button>
+                      </Link>
                     )}
                   </div>
                 );

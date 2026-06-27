@@ -192,6 +192,7 @@ async def init_db() -> None:
             try:
                 await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'))
                 await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "pgcrypto"'))
+                await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "vector"'))
             except Exception as e:
                 logger.warning(f"database.init_db: could not create extensions (non-fatal): {e}")
         # checkfirst=True means it won't error if tables already exist

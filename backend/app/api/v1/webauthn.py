@@ -50,7 +50,7 @@ from webauthn.helpers.structs import (
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import TokenData, get_current_user
+from app.core.security import TokenData, get_current_user, require_admin
 from app.repositories.credential_repository import CredentialRepository
 
 router = APIRouter(prefix="/webauthn", tags=["WebAuthn"])
@@ -231,6 +231,14 @@ async def register_complete(
         device_metadata={**body.device_metadata, "user_agent": ua},
     )
 
+    # Mark user as fingerprint-enrolled
+    from app.repositories.user_repository import UserRepository
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(current_user.user_uuid)
+    if user:
+        user.is_fingerprint_enrolled = True
+        await db.commit()
+
     _challenges.pop(key, None)
     return {
         "enrolled": True,
@@ -325,8 +333,141 @@ async def authenticate_complete(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TERMINAL FINGERPRINT IDENTITY (Admin — Discoverable Credential)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# A shared key for the terminal challenge (not tied to a specific user)
+_TERMINAL_CHALLENGE_KEY = "terminal:admin"
+
+
+@router.post("/terminal/begin", summary="Admin Terminal: Begin discoverable fingerprint challenge")
+async def terminal_begin(
+    request: Request,
+    token_data: TokenData = Depends(require_admin),
+) -> JSONResponse:
+    """
+    Admin Trust Terminal — start a discoverable-credential WebAuthn challenge.
+
+    No `allowCredentials` list is passed, so the browser authenticator will
+    show a picker of ALL locally stored passkeys registered for this RP.
+    The person to be identified touches their finger; their passkey signs the
+    challenge and the credential_id is returned to the terminal.
+    Then /terminal/complete maps that credential_id back to a NeoFace user.
+    """
+    rp_id = _rp_id(request)
+    origin = _expected_origin(request)
+
+    options = generate_authentication_options(
+        rp_id=rp_id,
+        allow_credentials=[],          # ← empty = discoverable (resident-key)
+        user_verification=UserVerificationRequirement.REQUIRED,
+    )
+    _challenges[_TERMINAL_CHALLENGE_KEY] = options.challenge
+    _challenge_origins[_TERMINAL_CHALLENGE_KEY] = origin
+    return JSONResponse(content=json.loads(options_to_json(options)))
+
+
+@router.post("/terminal/complete", summary="Admin Terminal: Verify fingerprint + return matched user profile")
+async def terminal_complete(
+    body: AuthenticateCompleteRequest,
+    request: Request,
+    token_data: TokenData = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Admin Trust Terminal — verify the signed WebAuthn assertion and return
+    the full profile of whichever enrolled user owns the credential.
+    """
+    from app.core.logging import logger
+
+    expected_challenge = _challenges.get(_TERMINAL_CHALLENGE_KEY)
+    if not expected_challenge:
+        raise HTTPException(400, "No active terminal challenge. Call /terminal/begin first.")
+
+    saved_origin = _challenge_origins.pop(_TERMINAL_CHALLENGE_KEY, None) or _expected_origin(request)
+    from urllib.parse import urlparse
+    saved_rp_id = urlparse(saved_origin).hostname or settings.WEBAUTHN_RP_ID
+
+    raw_cred_id = base64url_to_bytes(body.credential_id)
+    repo = CredentialRepository(db)
+    stored = await repo.get_by_credential_id(raw_cred_id)
+    if not stored:
+        _challenges.pop(_TERMINAL_CHALLENGE_KEY, None)
+        return {"identified": False, "message": "Fingerprint credential not found in system — person not enrolled.", "user": None}
+
+    try:
+        credential = AuthenticationCredential(
+            id=body.credential_id,
+            raw_id=base64url_to_bytes(body.raw_id),
+            response=AuthenticatorAssertionResponse(
+                client_data_json=base64url_to_bytes(body.response.clientDataJSON),
+                authenticator_data=base64url_to_bytes(body.response.authenticatorData or ""),
+                signature=base64url_to_bytes(body.response.signature or ""),
+                user_handle=base64url_to_bytes(body.response.userHandle) if body.response.userHandle else None,
+            ),
+            type=body.type,
+        )
+        verification = verify_authentication_response(
+            credential=credential,
+            expected_challenge=expected_challenge,
+            expected_rp_id=saved_rp_id,
+            expected_origin=saved_origin,
+            credential_public_key=stored.public_key,
+            credential_current_sign_count=stored.sign_count,
+            require_user_verification=True,
+        )
+    except Exception as exc:
+        _challenges.pop(_TERMINAL_CHALLENGE_KEY, None)
+        raise HTTPException(400, f"Fingerprint verification failed: {exc}")
+
+    await repo.update_sign_count(raw_cred_id, verification.new_sign_count)
+    _challenges.pop(_TERMINAL_CHALLENGE_KEY, None)
+
+    # ── Fetch user profile ────────────────────────────────────────────────────
+    from app.repositories.user_repository import UserRepository
+    from app.repositories.embedding_repository import EmbeddingRepository
+
+    user_repo = UserRepository(db)
+    emb_repo = EmbeddingRepository(db)
+
+    user = await user_repo.get_by_id(stored.user_id)
+    if not user:
+        return {"identified": False, "message": "Credential owner not found.", "user": None}
+
+    face_count = await emb_repo.count_by_user(user.id)
+    all_creds = await repo.list_by_user(user.id)
+
+    logger.info(
+        "terminal.fingerprint_match",
+        admin_id=token_data.user_id,
+        matched_user=str(user.id),
+        device=stored.device_name,
+    )
+
+    return {
+        "identified": True,
+        "confidence": 100.0,
+        "message": f"Fingerprint matched · {stored.device_name}",
+        "user": {
+            "id": str(user.id),
+            "name": user.name,
+            "email": user.email,
+            "role": user.role,
+            "is_active": user.is_active,
+            "is_enrolled": user.is_enrolled,
+            "is_fingerprint_enrolled": True,
+            "face_embedding_count": face_count,
+            "fingerprint_device": stored.device_name,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "last_login": None,
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # DEVICE MANAGEMENT
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @router.get("/devices")
 async def list_devices(

@@ -346,6 +346,41 @@ export const trustEngineApi = {
     api.get("/api/v1/trust-engine/enrollment-status"),
 };
 
+// ── Admin Identity Terminal APIs ───────────────────────────────────────────────
+
+export const terminalApi = {
+  /**
+   * Admin face-scan identity lookup.
+   * Sends a captured frame and returns the matched user's full profile.
+   * Requires admin role.
+   */
+  identifyByFace: (formData: FormData, threshold?: number) =>
+    api.post(
+      `/api/v1/verify/identity-terminal${threshold ? `?threshold=${threshold}` : ""}`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    ),
+
+  /**
+   * Admin fingerprint identity — begin a DISCOVERABLE WebAuthn challenge.
+   * No specific user needed. Device authenticator shows a picker of all
+   * locally stored NeoFace passkeys, person touches their finger, and we
+   * map the credential ID back to their profile in /terminal/complete.
+   */
+  fingerprintBegin: () => api.post("/api/v1/webauthn/terminal/begin"),
+
+  /**
+   * Admin fingerprint identity — submit the signed assertion and get back
+   * the full profile of the matched user.
+   */
+  fingerprintComplete: (body: {
+    credential_id: string;
+    raw_id: string;
+    response: Record<string, string>;
+    type: string;
+  }) => api.post("/api/v1/webauthn/terminal/complete", body),
+};
+
 const getFullPath = (path: string) => {
   const cleanPath = path.replace(/^\//, "");
   if (cleanPath.startsWith("admin/")) {

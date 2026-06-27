@@ -123,17 +123,19 @@ async def _resolve_jwt(token: str, db: AsyncSession) -> OrgContext:
 
     user_id = uuid.UUID(payload["sub"])
     role = payload.get("role", "user")
+    email = payload.get("email", "unknown")
 
     org_repo = OrganizationRepository(db)
 
     # Admins get the default org context; they can pass ?org_id= on specific endpoints
-    if role == "admin":
+    if role in ("admin", "super_admin"):
         default_org = await org_repo.get_default()
         if not default_org:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Default organization not seeded",
             )
+        logger.info("_resolve_jwt success (platform admin)", email=email, user_id=str(user_id), scopes=["*"])
         return OrgContext(
             org_id=default_org.id,
             user_id=user_id,
@@ -154,10 +156,12 @@ async def _resolve_jwt(token: str, db: AsyncSession) -> OrgContext:
         # Guest or newly registered user with no organization
         default_org = await org_repo.get_default()
         if not default_org:
+            logger.warning("_resolve_jwt failed (no membership + no default org)", email=email, user_id=str(user_id))
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No organization membership found",
             )
+        logger.info("_resolve_jwt guest/no-membership", email=email, user_id=str(user_id), scopes=["identity:read", "session:read"])
         return OrgContext(
             org_id=default_org.id,
             user_id=user_id,
@@ -171,6 +175,7 @@ async def _resolve_jwt(token: str, db: AsyncSession) -> OrgContext:
     else:
         scopes = ["identity:read", "session:read"]  # Regular members only get member access
 
+    logger.info("_resolve_jwt success (regular/org user)", email=email, user_id=str(user_id), membership_role=membership.role, scopes=scopes)
     return OrgContext(
         org_id=membership.organization_id,
         user_id=user_id,

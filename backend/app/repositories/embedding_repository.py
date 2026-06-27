@@ -82,39 +82,43 @@ class EmbeddingRepository:
             dialect = "postgresql"
 
         if dialect == "postgresql":
-            # pgvector cosine similarity = 1.0 - (a <=> b)
-            # Both sides must be cast to vector because embedding_vector is defined as ARRAY(Float) (double precision[])
-            stmt = (
-                select(
-                    FaceEmbedding,
-                    text("1.0 - (CAST(face_embeddings.embedding_vector AS vector) <=> CAST(:query_vector AS vector)) AS similarity")
+            try:
+                # pgvector cosine similarity = 1.0 - (a <=> b)
+                # Both sides must be cast to vector because embedding_vector is defined as ARRAY(Float) (double precision[])
+                stmt = (
+                    select(
+                        FaceEmbedding,
+                        text("1.0 - (CAST(face_embeddings.embedding_vector AS vector) <=> CAST(:query_vector AS vector)) AS similarity")
+                    )
+                    .join(FaceEmbedding.user)
+                    .order_by(text("CAST(face_embeddings.embedding_vector AS vector) <=> CAST(:query_vector AS vector)"))
+                    .params(query_vector=str(query_vector))
+                    .limit(limit)
                 )
-                .join(FaceEmbedding.user)
-                .order_by(text("CAST(face_embeddings.embedding_vector AS vector) <=> CAST(:query_vector AS vector)"))
-                .params(query_vector=str(query_vector))
-                .limit(limit)
-            )
-            res = await self.db.execute(stmt)
-            return [(row[0], float(row[1])) for row in res.all()]
-        else:
-            # Fallback for SQLite / unit tests
-            all_active = await self.get_all_active()
-            q_arr = np.array(query_vector, dtype=np.float32)
-            q_norm = np.linalg.norm(q_arr)
+                res = await self.db.execute(stmt)
+                return [(row[0], float(row[1])) for row in res.all()]
+            except Exception as e:
+                logger.warning(f"pgvector query failed (falling back to python math): {e}")
+                # Fall through to SQLite/Python fallback
 
-            candidates = []
-            for emb in all_active:
-                emb_arr = np.array(emb.embedding_vector, dtype=np.float32)
-                emb_norm = np.linalg.norm(emb_arr)
-                if q_norm == 0.0 or emb_norm == 0.0:
-                    sim = 0.0
-                else:
-                    sim = float(np.dot(q_arr, emb_arr) / (q_norm * emb_norm))
-                candidates.append((emb, sim))
+        # Fallback for SQLite, unit tests, or PostgreSQL without pgvector extension
+        all_active = await self.get_all_active()
+        q_arr = np.array(query_vector, dtype=np.float32)
+        q_norm = np.linalg.norm(q_arr)
 
-            # Sort by similarity descending
-            candidates.sort(key=lambda x: x[1], reverse=True)
-            return candidates[:limit]
+        candidates = []
+        for emb in all_active:
+            emb_arr = np.array(emb.embedding_vector, dtype=np.float32)
+            emb_norm = np.linalg.norm(emb_arr)
+            if q_norm == 0.0 or emb_norm == 0.0:
+                sim = 0.0
+            else:
+                sim = float(np.dot(q_arr, emb_arr) / (q_norm * emb_norm))
+            candidates.append((emb, sim))
+
+        # Sort by similarity descending
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        return candidates[:limit]
 
     async def count_by_user(self, user_id: uuid.UUID) -> int:
         """Count how many embeddings a user has."""

@@ -126,14 +126,16 @@ async def enroll_user(
     "/validate-frame",
     status_code=status.HTTP_200_OK,
     summary="Validate a single face capture frame",
-    description="Validate that a single captured face image contains exactly one clear face before saving it.",
+    description="Validate that a single captured face image contains exactly one clear face, is live, and matches the expected head pose direction.",
 )
 async def validate_frame(
     file: UploadFile = File(...),
+    expected_pose: str | None = Form(default=None),
     detector: FaceDetectorService = Depends(get_face_detector),
 ) -> dict:
     """
     Validate a single face image frame captured during enrollment.
+    Checks quality, passive liveness, and optional pose direction.
     """
     if file.content_type and file.content_type not in SUPPORTED_IMAGE_TYPES:
         return {
@@ -154,17 +156,79 @@ async def validate_frame(
             "error": "Image is empty",
         }
 
+    # 1. Face detection
     detection_result, face = detector.detect_single(image_data)
-
     if not detection_result.success or face is None:
         return {
             "success": False,
             "error": detection_result.error or "No valid face image found.",
         }
 
+    # 2. Liveness check
+    from app.services.passive_liveness_service import PassiveLivenessService
+    liveness_service = PassiveLivenessService.get_instance()
+    liveness_result = liveness_service.predict_from_bytes(image_data, face.bbox)
+
+    if not liveness_result.is_live:
+        return {
+            "success": False,
+            "error": f"Liveness check failed: spoof detected (score={liveness_result.liveness_score:.2f})",
+            "quality_score": face.quality_score,
+            "liveness_score": liveness_result.liveness_score,
+            "is_live": False,
+        }
+
+    # 3. Pose check
+    from app.services.headpose_service import HeadPoseService
+    headpose_service = HeadPoseService.get_instance()
+    pose_result = headpose_service.estimate(image_data)
+
+    pose_passed = True
+    if expected_pose:
+        expected_pose = expected_pose.lower().strip()
+        if expected_pose == "straight":
+            if abs(pose_result.yaw) > 15.0:
+                pose_passed = False
+        elif expected_pose == "right":
+            # Turn right relative to camera = face points to the right (positive yaw)
+            if pose_result.yaw < 15.0:
+                pose_passed = False
+        elif expected_pose == "left":
+            # Turn left relative to camera = face points to the left (negative yaw)
+            if pose_result.yaw > -15.0:
+                pose_passed = False
+
+    if not pose_passed:
+        if expected_pose == "straight":
+            msg = f"Please face straight. (Current yaw: {pose_result.yaw:.1f}°)"
+        elif expected_pose == "right":
+            msg = f"Please turn your head to the right. (Current yaw: {pose_result.yaw:.1f}°)"
+        elif expected_pose == "left":
+            msg = f"Please turn your head to the left. (Current yaw: {pose_result.yaw:.1f}°)"
+        else:
+            msg = f"Expected pose '{expected_pose}' not met. (Current yaw: {pose_result.yaw:.1f}°)"
+
+        return {
+            "success": False,
+            "error": msg,
+            "quality_score": face.quality_score,
+            "liveness_score": liveness_result.liveness_score,
+            "is_live": liveness_result.is_live,
+            "yaw": pose_result.yaw,
+            "pitch": pose_result.pitch,
+            "roll": pose_result.roll,
+            "pose_passed": False,
+        }
+
     return {
         "success": True,
         "quality_score": face.quality_score,
+        "liveness_score": liveness_result.liveness_score,
+        "is_live": liveness_result.is_live,
+        "yaw": pose_result.yaw,
+        "pitch": pose_result.pitch,
+        "roll": pose_result.roll,
+        "pose_passed": True,
     }
 
 

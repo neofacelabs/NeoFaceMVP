@@ -110,15 +110,18 @@ class HeadPoseService:
 
         dist_coeffs = np.zeros((4, 1), dtype=np.float64)
 
-        success, rvec, tvec = cv2.solvePnP(
-            _MODEL_3D_POINTS,
-            image_2d,
-            camera_matrix,
-            dist_coeffs,
-            flags=cv2.SOLVEPNP_ITERATIVE,
-        )
-
-        if not success:
+        try:
+            success, rvec, tvec = cv2.solvePnP(
+                _MODEL_3D_POINTS,
+                image_2d,
+                camera_matrix,
+                dist_coeffs,
+                flags=cv2.SOLVEPNP_ITERATIVE,
+            )
+            if not success:
+                return None
+        except cv2.error as exc:
+            logger.warning("solvePnP OpenCV error", error=str(exc))
             return None
 
         # Convert rotation vector to rotation matrix

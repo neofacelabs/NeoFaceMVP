@@ -258,9 +258,25 @@ class TestEnrollmentAPI:
     @pytest.mark.asyncio
     async def test_validate_frame_endpoint_success(self, async_client: AsyncClient, mock_face_detector):
         """Test POST /api/v1/enrollment/validate-frame with valid data."""
+        mock_liveness = MagicMock()
+        mock_liveness.is_live = True
+        mock_liveness.liveness_score = 0.99
+
+        mock_pose = MagicMock()
+        mock_pose.yaw = 0.0
+        mock_pose.pitch = 0.0
+        mock_pose.roll = 0.0
+        mock_pose.is_extreme = False
+
         with patch(
             "app.utils.dependencies.get_face_detector",
             return_value=mock_face_detector,
+        ), patch(
+            "app.services.passive_liveness_service.PassiveLivenessService.predict_from_bytes",
+            return_value=mock_liveness,
+        ), patch(
+            "app.services.headpose_service.HeadPoseService.estimate",
+            return_value=mock_pose,
         ):
             image_bytes = make_test_image_bytes()
             files = {"file": ("test.jpg", image_bytes, "image/jpeg")}

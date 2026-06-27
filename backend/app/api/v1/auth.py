@@ -165,7 +165,22 @@ async def get_current_user(
             detail="User not found",
         )
 
-    return UserResponse.model_validate(user)
+    # Resolve organization role
+    from app.models.org_membership import OrgMembership
+    from sqlalchemy import select
+    org_role = None
+    try:
+        stmt = select(OrgMembership).where(OrgMembership.user_id == user.id).limit(1)
+        res = await db.execute(stmt)
+        membership = res.scalar_one_or_none()
+        if membership:
+            org_role = membership.role
+    except Exception as exc:
+        logger.error("get_current_user: failed to load org_role", error=str(exc))
+
+    response = UserResponse.model_validate(user)
+    response.org_role = org_role
+    return response
 
 
 @router.post(

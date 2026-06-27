@@ -18,6 +18,8 @@ from jose import JWTError, jwt
 from pydantic import BaseModel, computed_field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
+
 from app.core.config import settings
 from app.core.logging import logger
 
@@ -197,17 +199,36 @@ async def get_current_user_token(
 
 async def require_admin(
     token_data: TokenData = Depends(get_current_user_token),
+    db: AsyncSession = Depends(get_db),
 ) -> TokenData:
     """
-    FastAPI dependency: require admin role.
-    Raises 403 if the user is not an admin.
+    FastAPI dependency: require platform admin OR organization admin/owner.
+    Raises 403 if the user lacks admin privileges.
     """
-    if token_data.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
+    # 1. Platform-level admin check
+    if token_data.role in ("admin", "super_admin"):
+        return token_data
+
+    # 2. Organization-level admin check
+    try:
+        from app.models.org_membership import OrgMembership
+        from sqlalchemy import select
+        result = await db.execute(
+            select(OrgMembership).where(
+                OrgMembership.user_id == token_data.user_uuid,
+                OrgMembership.role.in_(["admin", "owner"])
+            )
         )
-    return token_data
+        membership = result.scalar_one_or_none()
+        if membership:
+            return token_data
+    except Exception as exc:
+        logger.error("require_admin: membership query failed", error=str(exc))
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Admin access required",
+    )
 
 
 # ── Convenience singletons ────────────────────────────────────────────────────
@@ -246,7 +267,6 @@ get_current_user = get_current_user_token
 # ── Merchant API Key Security ──────────────────────────────────────────────────
 from fastapi.security import APIKeyHeader
 from sqlalchemy import select
-from app.core.database import get_db
 
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 

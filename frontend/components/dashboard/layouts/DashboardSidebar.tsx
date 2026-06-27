@@ -33,6 +33,7 @@ import {
   Cctv,
   ZapIcon,
   ExternalLink,
+  ScanFace,
   LucideIcon,
 } from "lucide-react";
 
@@ -204,6 +205,7 @@ export function DashboardSidebar({ navItems, header, footer, orgSlug }: Dashboar
 
 export const superAdminNav: SidebarNavItem[] = [
   { id: "overview", label: "Overview", href: "/super", icon: LayoutDashboard },
+  { id: "trust-terminal", label: "Trust Terminal", href: "/super/trust-terminal", icon: ScanFace, badge: "LIVE" },
   { id: "organizations", label: "Organizations", href: "/super/organizations", icon: Building2 },
   { id: "analytics", label: "Analytics", href: "/super/analytics", icon: BarChart3 },
   { id: "ai-models", label: "AI Models", href: "/super/ai-models", icon: Brain },
@@ -219,6 +221,7 @@ export function getOrgAdminNav(orgSlug: string): SidebarNavItem[] {
   const base = `/org/${orgSlug}`;
   return [
     { id: "overview", label: "Overview", href: base, icon: LayoutDashboard },
+    { id: "trust-terminal", label: "Trust Terminal", href: `${base}/trust-terminal`, icon: ScanFace, badge: "LIVE" },
     { id: "projects", label: "Projects", href: `${base}/projects`, icon: FolderKanban },
     { id: "members", label: "Members", href: `${base}/members`, icon: Users },
     { id: "devices", label: "Devices", href: `${base}/devices`, icon: HardDrive },
@@ -232,6 +235,7 @@ export function getEducationNav(orgSlug: string, projectId: string): SidebarNavI
   const base = `/org/${orgSlug}/projects/${projectId}`;
   return [
     { id: "dashboard", label: "Dashboard", href: base, icon: LayoutDashboard },
+    { id: "trust-terminal", label: "Trust Terminal", href: `/org/${orgSlug}/trust-terminal`, icon: ScanFace, badge: "LIVE" },
     {
       id: "members",
       label: "Members",
@@ -259,6 +263,7 @@ export function getPhysicalSecurityNav(orgSlug: string, projectId: string): Side
   const base = `/org/${orgSlug}/projects/${projectId}`;
   return [
     { id: "dashboard", label: "Dashboard", href: base, icon: LayoutDashboard },
+    { id: "trust-terminal", label: "Trust Terminal", href: `/org/${orgSlug}/trust-terminal`, icon: ScanFace, badge: "LIVE" },
     { id: "personnel", label: "Personnel", href: `${base}/personnel`, icon: Users },
     { id: "access-zones", label: "Access Zones", href: `${base}/access-zones`, icon: Map },
     { id: "devices", label: "Devices", href: `${base}/devices`, icon: Cctv },

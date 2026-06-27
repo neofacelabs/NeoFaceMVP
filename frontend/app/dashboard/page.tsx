@@ -23,7 +23,7 @@ export default function DashboardRedirectPage() {
         if (user.role === "admin") {
           setPlatformRole("super_admin");
           router.replace("/super");
-        } else {
+        } else if (user.org_role === "admin" || user.org_role === "owner") {
           setPlatformRole("org_admin");
 
           try {
@@ -81,6 +81,10 @@ export default function DashboardRedirectPage() {
             setPlatformRole("member");
             router.replace("/me");
           }
+        } else {
+          // Standard member or guest — redirect directly to self-service portal
+          setPlatformRole("member");
+          router.replace("/me");
         }
       } catch (err: any) {
         console.error("Auth check failed:", err);

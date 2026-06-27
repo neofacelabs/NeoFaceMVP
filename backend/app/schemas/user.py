@@ -61,6 +61,7 @@ class UserResponse(UserBase):
     role: str
     is_active: bool
     is_enrolled: bool
+    org_role: str | None = None
     created_at: datetime
     updated_at: datetime
 
