@@ -52,29 +52,6 @@ async def get_threat_alerts(
             "status": "investigating",
         })
 
-    # If threats are empty, add two default threat alerts for demonstration
-    if not threats:
-        threats = [
-            {
-                "id": str(uuid.uuid4()),
-                "threat_type": "Deepfake Injection Attack",
-                "risk_score": 0.94,
-                "ip_address": "45.122.11.90",
-                "location": "California, US",
-                "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat(),
-                "status": "blocked",
-            },
-            {
-                "id": str(uuid.uuid4()),
-                "threat_type": "High Latency Replay Attack",
-                "risk_score": 0.81,
-                "ip_address": "103.8.99.12",
-                "location": "Tokyo, JP",
-                "timestamp": (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat(),
-                "status": "resolved",
-            }
-        ]
-
     return {
         "active_threats_count": len(threats),
         "threats": threats
@@ -133,7 +110,7 @@ async def get_access_control(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     return {
-        "blacklist": ["198.51.100.42", "203.0.113.15", "45.122.11.90"],
+        "blacklist": [],
         "whitelist": ["127.0.0.1", "192.168.1.0/24"],
     }
 

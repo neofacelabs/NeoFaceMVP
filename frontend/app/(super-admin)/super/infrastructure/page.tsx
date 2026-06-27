@@ -72,12 +72,12 @@ export default function InfrastructurePage() {
       <KPIGrid>
         <KPICard
           label="API Node CPU Load"
-          value={metrics ? `${metrics.cpu_usage.toFixed(1)}%` : "0%"}
-          color={metrics?.cpu_usage > 80 ? "warning" : "default"}
+          value={metrics?.cpu_percent !== undefined ? `${metrics.cpu_percent.toFixed(1)}%` : "0%"}
+          color={metrics?.cpu_percent > 80 ? "warning" : "default"}
         />
         <KPICard
           label="Memory Usage Ratio"
-          value={metrics ? `${metrics.memory_usage.toFixed(1)}%` : "0%"}
+          value={metrics?.memory_percent !== undefined ? `${metrics.memory_percent.toFixed(1)}%` : "0%"}
         />
         <KPICard
           label="Celery Queue Depth"
@@ -85,9 +85,9 @@ export default function InfrastructurePage() {
           color={metrics?.queue_depth > 100 ? "warning" : "default"}
         />
         <KPICard
-          label="GPU Core Temperature"
-          value={metrics ? `${metrics.gpu_temp.toFixed(0)}°C` : "0°C"}
-          color={metrics?.gpu_temp > 82 ? "warning" : "success"}
+          label="GPU Core Utilization"
+          value={metrics?.gpu_utilization !== undefined && metrics.gpu_utilization !== null ? `${metrics.gpu_utilization.toFixed(0)}%` : "0%"}
+          color={metrics?.gpu_utilization > 82 ? "warning" : "success"}
         />
       </KPIGrid>
 
@@ -112,27 +112,27 @@ export default function InfrastructurePage() {
                 </TableHeader>
                 <TableBody>
                   {services.map((svc: any) => (
-                    <TableRow key={svc.service}>
+                    <TableRow key={svc.name}>
                       <TableCell className="font-semibold text-white text-xs flex items-center gap-2">
-                        {svc.service === "postgres" ? <Server className="h-3.5 w-3.5 text-blue-400" /> :
-                         svc.service === "redis" ? <HardDrive className="h-3.5 w-3.5 text-red-400" /> :
+                        {svc.name === "postgresql" ? <Server className="h-3.5 w-3.5 text-blue-400" /> :
+                         svc.name === "redis" ? <HardDrive className="h-3.5 w-3.5 text-red-400" /> :
                          <Cpu className="h-3.5 w-3.5 text-indigo-400" />}
-                        <span className="capitalize">{svc.service}</span>
+                        <span className="capitalize">{svc.name.replace("_", " ")}</span>
                       </TableCell>
                       <TableCell className="text-xs text-white/60 font-mono">
-                        {svc.service === "postgres" ? "postgresql://supabase-db:5432" :
-                         svc.service === "redis" ? "redis://redis-broker:6379" :
+                        {svc.name === "postgresql" ? "postgresql://supabase-db:5432" :
+                         svc.name === "redis" ? "redis://redis-broker:6379" :
                          "celery://rabbitmq-worker:5672"}
                       </TableCell>
                       <TableCell className="text-right font-medium text-xs text-white/80">
-                        {svc.latency_ms ? `${svc.latency_ms.toFixed(1)} ms` : "N/A"}
+                        {svc.latency_ms !== undefined && svc.latency_ms !== null ? `${svc.latency_ms.toFixed(1)} ms` : "N/A"}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 text-xs">
                           {statusIcon(svc.status)}
                           <span className={cn(
                             "capitalize font-medium",
-                            svc.status === "healthy" ? "text-emerald-400" :
+                            svc.status === "ok" || svc.status === "healthy" ? "text-emerald-400" :
                             svc.status === "degraded" ? "text-yellow-400" :
                             "text-red-400"
                           )}>{svc.status}</span>
@@ -151,15 +151,23 @@ export default function InfrastructurePage() {
           <ChartCard title="Database Telemetry" description="Active Postgres connection pools count." index={1}>
             <div className="space-y-4">
               <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 text-center">
-                <p className="text-[10px] uppercase font-bold text-white/40 tracking-wider">Active DB Connections</p>
-                <p className="text-3xl font-extrabold text-[#00E5A8] mt-1">12</p>
-                <p className="text-[10px] text-white/35 mt-1">Max capacity: 100 connections</p>
+                <p className="text-[10px] uppercase font-bold text-white/40 tracking-wider">Database Health Check</p>
+                <p className="text-3xl font-extrabold text-[#00E5A8] mt-1">
+                  {services?.find((s: any) => s.name === "postgresql")?.status === "ok" ? "ONLINE" : "OFFLINE"}
+                </p>
+                <p className="text-[10px] text-white/35 mt-1">
+                  Latency: {services?.find((s: any) => s.name === "postgresql")?.latency_ms?.toFixed(1) || "0.0"} ms
+                </p>
               </div>
 
               <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 text-center">
-                <p className="text-[10px] uppercase font-bold text-white/40 tracking-wider">Redis Memory Allocated</p>
-                <p className="text-3xl font-extrabold text-sky-400 mt-1">15.4 MB</p>
-                <p className="text-[10px] text-white/35 mt-1">Cache Eviction Strategy: volatile-lru</p>
+                <p className="text-[10px] uppercase font-bold text-white/40 tracking-wider">Redis Broker Connection</p>
+                <p className="text-3xl font-extrabold text-sky-400 mt-1">
+                  {services?.find((s: any) => s.name === "redis")?.status === "ok" ? "ONLINE" : "OFFLINE"}
+                </p>
+                <p className="text-[10px] text-white/35 mt-1">
+                  Latency: {services?.find((s: any) => s.name === "redis")?.latency_ms?.toFixed(1) || "0.0"} ms
+                </p>
               </div>
             </div>
           </ChartCard>

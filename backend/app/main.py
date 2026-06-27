@@ -213,10 +213,39 @@ async def bootstrap_admin() -> None:
             logger.info("Admin user bootstrapped", email=settings.ADMIN_EMAIL)
         else:
             logger.debug("Admin user already exists", email=settings.ADMIN_EMAIL)
+        # 2. Org Admin
+        org_admin_email = "orgadmin@neoface.io"
+        if not await user_repo.exists_by_email(org_admin_email):
+            hashed = PasswordHasher.hash("AdminPass123!")
+            org_admin_schema = UserCreate(
+                name="Demo Org Admin",
+                email=org_admin_email,
+                password="AdminPass123!",
+            )
+            user = await user_repo.create(org_admin_schema, hashed_password=hashed, role="user")
+            if default_org:
+                await org_repo.add_member(default_org.id, user.id, role="admin")
+            await session.commit()
+            logger.info("Org admin user bootstrapped", email=org_admin_email)
+        else:
+            logger.debug("Org admin user already exists", email=org_admin_email)
 
-
-
-
+        # 3. Regular Member
+        member_email = "member@neoface.io"
+        if not await user_repo.exists_by_email(member_email):
+            hashed = PasswordHasher.hash("AdminPass123!")
+            member_schema = UserCreate(
+                name="Demo Member User",
+                email=member_email,
+                password="AdminPass123!",
+            )
+            user = await user_repo.create(member_schema, hashed_password=hashed, role="user")
+            if default_org:
+                await org_repo.add_member(default_org.id, user.id, role="member")
+            await session.commit()
+            logger.info("Member user bootstrapped", email=member_email)
+        else:
+            logger.debug("Member user already exists", email=member_email)
 # ── Application factory ────────────────────────────────────────────────────────
 def create_app() -> FastAPI:
     """

@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { useSecurityAlerts, useAccessControl, useModifyAccessControl, useLockdown, useReleaseLockdown } from "@/lib/api";
+import { useSecurityAlerts, useAccessControl, useModifyAccessControl, useLockdown, useReleaseLockdown, useSystemSettings } from "@/lib/api";
 import { ShieldAlert, ShieldCheck, Skull, Ban, Globe, Plus, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
@@ -24,6 +24,7 @@ export default function SecurityCenterPage() {
   const [ipInput, setIpInput] = React.useState("");
   const [lockdownState, setLockdownState] = React.useState<"active" | "locked_down">("active");
 
+  const { data: settingsData } = useSystemSettings();
   const { data: alertsData, isLoading: alertsLoading } = useSecurityAlerts(20);
   const { data: accessControl, isLoading: ipLoading, refetch: refetchIps } = useAccessControl();
   
@@ -120,14 +121,14 @@ export default function SecurityCenterPage() {
           color={lockdownState === "locked_down" ? "warning" : (threats.length > 0 ? "warning" : "success")}
         />
         <KPICard
-          label="Firewall Blocks (30d)"
-          value="452"
-          sub_label="+12% weekly increase"
+          label="Firewall Blocks (Active)"
+          value={blacklistedIps.length.toString()}
+          sub_label="Active firewall blacklisted IPs"
         />
         <KPICard
           label="Strict Liveness Mode"
-          value="ENABLED"
-          color="success"
+          value={settingsData?.liveness_strict_mode ? "ENABLED" : "DISABLED"}
+          color={settingsData?.liveness_strict_mode ? "success" : "default"}
         />
         <KPICard
           label="IP Blacklist Entries"
