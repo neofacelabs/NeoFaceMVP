@@ -49,12 +49,12 @@ import { apiClient, dashboardApi } from "@/lib/api";
 export default function AuthenticationPage({ params }: { params: Promise<{ orgSlug: string; projectId: string }> }) {
   const { orgSlug, projectId } = React.use(params);
   const [search, setSearch] = React.useState("");
-  const [logs, setLogs] = React.useState<any[]>(mockAuthLogs);
+  const [logs, setLogs] = React.useState<any[]>([]);
   const [summary, setSummary] = React.useState({
-    total: mockAuthLogs.length,
-    success: mockAuthLogs.filter((l) => l.result === "success").length,
-    failed: mockAuthLogs.filter((l) => l.result === "failed").length,
-    spoof: mockAuthLogs.filter((l) => l.result === "spoof_detected").length,
+    total: 0,
+    success: 0,
+    failed: 0,
+    spoof: 0,
   });
 
   React.useEffect(() => {

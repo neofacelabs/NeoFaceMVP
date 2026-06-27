@@ -50,21 +50,14 @@ const planColors: Record<string, string> = {
 import { dashboardApi, apiClient } from "@/lib/api";
 
 export default function BillingPage() {
-  const [billingList, setBillingList] = React.useState<any[]>(mockBilling);
+  const [billingList, setBillingList] = React.useState<any[]>([]);
   const [stats, setStats] = React.useState({
-    mrr: mockBilling.reduce((acc, b) => acc + b.total_usd, 0),
-    overdue: mockBilling.filter((b) => b.status === "overdue").reduce((acc, b) => acc + b.total_usd, 0),
-    payingCustomers: mockBilling.filter(b => b.status === "paid").length,
-    trials: mockBilling.filter(b => b.status === "trial").length,
+    mrr: 0,
+    overdue: 0,
+    payingCustomers: 0,
+    trials: 0,
   });
-  const [mrrTrend, setMrrTrend] = React.useState<any[]>([
-    { month: "Jan", mrr: 7200 },
-    { month: "Feb", mrr: 8100 },
-    { month: "Mar", mrr: 9400 },
-    { month: "Apr", mrr: 11200 },
-    { month: "May", mrr: 12800 },
-    { month: "Jun", mrr: 14460 },
-  ]);
+  const [mrrTrend, setMrrTrend] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     async function loadBillingData() {

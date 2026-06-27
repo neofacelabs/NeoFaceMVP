@@ -28,7 +28,7 @@ const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
 import { apiClient } from "@/lib/api";
 
 export default function AIModelsPage() {
-  const [models, setModels] = React.useState<any[]>(mockAIModels);
+  const [models, setModels] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     async function loadModels() {
@@ -68,11 +68,11 @@ export default function AIModelsPage() {
   
   const avgAccuracy = productionModels.length > 0 
     ? (productionModels.reduce((acc, m) => acc + m.accuracy, 0) / productionModels.length).toFixed(1)
-    : "99.2";
+    : "0.0";
 
   const avgLatency = productionModels.length > 0
     ? Math.round(productionModels.reduce((acc, m) => acc + m.latency_ms, 0) / productionModels.length)
-    : 45;
+    : 0;
 
   return (
     <div className="space-y-6">

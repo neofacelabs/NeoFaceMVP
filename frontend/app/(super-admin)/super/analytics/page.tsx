@@ -48,12 +48,12 @@ import { dashboardApi } from "@/lib/api";
 
 export default function AnalyticsPage() {
   const [stats, setStats] = React.useState({
-    volume: 632891,
-    newOrgs: 29,
-    newMembers: 8234,
-    uptime: "99.96%",
+    volume: 0,
+    newOrgs: 0,
+    newMembers: 0,
+    uptime: "99.99%",
   });
-  const [authTrend, setAuthTrend] = React.useState<any[]>(mockGlobalAuthTrend);
+  const [authTrend, setAuthTrend] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -69,9 +69,9 @@ export default function AnalyticsPage() {
         const v = verifRes.data || {};
 
         setStats({
-          volume: v.total_verifications || 632891,
-          newOrgs: u.orgs_count || 29,
-          newMembers: u.total_users || 8234,
+          volume: v.total_verifications || 0,
+          newOrgs: u.orgs_count || 0,
+          newMembers: u.total_users || 0,
           uptime: "99.98%",
         });
 

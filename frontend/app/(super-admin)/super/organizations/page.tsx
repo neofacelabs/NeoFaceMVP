@@ -13,7 +13,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { mockOrganizations } from "@/lib/mock-data/super-admin";
 import { Plus, Search, MoreHorizontal, ExternalLink, Pause, Trash2, Building2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
@@ -52,22 +51,26 @@ export default function OrganizationsPage() {
   };
 
   const orgs = (data?.items || []).map((o: any) => {
-    const mock = (mockOrganizations.find((m) => m.slug === o.slug || m.id === o.id) as any) || {};
     return {
       id: o.id,
       name: o.name,
       slug: o.slug,
-      owner_name: mock.owner_name || "Enterprise Admin",
-      industry: mock.industry || "Software & SaaS",
+      owner_name: o.owner_name || "Enterprise Admin",
+      industry: o.industry || "Software & SaaS",
       plan: o.plan || "pro",
-      member_count: mock.member_count || Math.floor(Math.random() * 450) + 12,
-      auth_count_30d: mock.auth_count_30d || Math.floor(Math.random() * 2500) + 80,
+      member_count: o.member_count || 0,
+      auth_count_30d: o.auth_count_30d || 0,
       status: o.status || "active",
       created_at: o.created_at,
     };
   });
 
   const filtered = orgs;
+
+  const totalOrgs = data?.total || 0;
+  const enterpriseOrgs = (data?.items || []).filter((o: any) => o.plan === "enterprise").length;
+  const proOrgs = (data?.items || []).filter((o: any) => o.plan === "pro").length;
+  const trialOrgs = (data?.items || []).filter((o: any) => o.status === "trial").length;
 
   return (
     <div className="space-y-6">
@@ -86,10 +89,10 @@ export default function OrganizationsPage() {
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
-          { label: "Total Orgs", value: mockOrganizations.length, color: "text-white" },
-          { label: "Enterprise", value: mockOrganizations.filter((o) => o.plan === "enterprise").length, color: "text-[#00E5A8]" },
-          { label: "Pro", value: mockOrganizations.filter((o) => o.plan === "pro").length, color: "text-[#38BDF8]" },
-          { label: "On Trial", value: mockOrganizations.filter((o) => o.status === "trial").length, color: "text-[#fbbf24]" },
+          { label: "Total Orgs", value: totalOrgs, color: "text-white" },
+          { label: "Enterprise", value: enterpriseOrgs, color: "text-[#00E5A8]" },
+          { label: "Pro", value: proOrgs, color: "text-[#38BDF8]" },
+          { label: "On Trial", value: trialOrgs, color: "text-[#fbbf24]" },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}

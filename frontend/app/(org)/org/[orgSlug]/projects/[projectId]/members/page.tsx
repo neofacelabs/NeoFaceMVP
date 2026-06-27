@@ -15,7 +15,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { mockStudents, mockFaculty } from "@/lib/mock-data/education";
 import {
   Plus,
   Search,
@@ -55,55 +54,7 @@ export default function MembersPage({ params }: { params: Promise<{ orgSlug: str
       const { data } = await apiClient.get(`/identities?application_id=${projectId}&page=1&page_size=100`);
       let list = data.items || [];
 
-      // Auto-seeding helper if DB is completely empty for this project
-      if (list.length === 0) {
-        toast.info("Initializing project members database...");
-        
-        // Seed 4 students
-        const studentsToSeed = mockStudents.slice(0, 4).map(s => ({
-          type: "student",
-          name: s.name,
-          email: s.email,
-          roll_number: s.roll_number,
-          department: s.department,
-          course: s.course,
-          semester: s.semester,
-          status: s.status,
-          face_status: s.face_status,
-          fingerprint_status: s.fingerprint_status,
-          last_auth_at: s.last_auth_at,
-          enrolled_at: s.enrolled_at,
-        }));
 
-        // Seed 2 faculty
-        const facultyToSeed = mockFaculty.slice(0, 2).map(f => ({
-          type: "faculty",
-          name: f.name,
-          email: f.email,
-          employee_id: f.employee_id,
-          department: f.department,
-          designation: f.designation,
-          status: f.status,
-          face_status: f.face_status,
-          fingerprint_status: f.fingerprint_status,
-          last_auth_at: f.last_auth_at,
-          enrolled_at: f.enrolled_at,
-        }));
-
-        const allSeeds = [...studentsToSeed, ...facultyToSeed];
-        
-        // Sequential creation
-        for (const seed of allSeeds) {
-          await apiClient.post("/identities", {
-            application_id: projectId,
-            external_user_id: JSON.stringify(seed),
-          });
-        }
-
-        // Re-fetch
-        const refetch = await apiClient.get(`/identities?application_id=${projectId}&page=1&page_size=100`);
-        list = refetch.data.items || [];
-      }
 
       // Map backend Identity models back to UI components
       const mapped = list.map((item: any) => {

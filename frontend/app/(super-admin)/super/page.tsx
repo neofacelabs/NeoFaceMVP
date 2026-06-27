@@ -48,17 +48,22 @@ const statusIcon = (status: string) => {
 };
 
 export default function SuperAdminPage() {
-  const [stats, setStats] = React.useState<any>(mockPlatformStats);
-  const [authTrend, setAuthTrend] = React.useState<any[]>(mockGlobalAuthTrend);
-  const [serviceHealth, setServiceHealth] = React.useState<any[]>(mockServiceHealth);
-  const [activity, setActivity] = React.useState<any[]>(mockPlatformActivity);
-  const [topOrgs, setTopOrgs] = React.useState<any[]>([
-    { name: "Acme Corporation", count: 124567, plan: "Enterprise" },
-    { name: "IIT Delhi Campus", count: 98234, plan: "Enterprise" },
-    { name: "City Medical", count: 41200, plan: "Pro" },
-    { name: "Greenfield Society", count: 18900, plan: "Pro" },
-    { name: "Techno Global", count: 5400, plan: "Starter" },
-  ]);
+  const [stats, setStats] = React.useState<any>({
+    total_orgs: 0,
+    total_members: 0,
+    auth_success_rate: 0,
+    total_devices: 0,
+    online_devices: 0,
+    total_auth_today: 0,
+    enrolled_members: 0,
+    enrollment_rate: 0,
+    active_projects: 0,
+    open_incidents: 0,
+  });
+  const [authTrend, setAuthTrend] = React.useState<any[]>([]);
+  const [serviceHealth, setServiceHealth] = React.useState<any[]>([]);
+  const [activity, setActivity] = React.useState<any[]>([]);
+  const [topOrgs, setTopOrgs] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -79,16 +84,16 @@ export default function SuperAdminPage() {
         const p = overviewRes.data || {};
 
         setStats({
-          total_orgs: u.orgs_count ?? mockPlatformStats.total_orgs,
-          total_members: u.total_users ?? mockPlatformStats.total_members,
-          auth_success_rate: v.success_rate ?? mockPlatformStats.auth_success_rate,
-          total_devices: u.apps_count ?? mockPlatformStats.total_devices,
-          online_devices: u.apps_count ?? mockPlatformStats.online_devices,
-          total_auth_today: v.total_verifications ?? mockPlatformStats.total_auth_today,
-          enrolled_members: u.enrolled_users ?? mockPlatformStats.enrolled_members,
-          enrollment_rate: u.enrollment_rate ?? mockPlatformStats.enrollment_rate,
-          active_projects: u.apps_count ?? mockPlatformStats.active_projects,
-          open_incidents: p.threats ?? mockPlatformStats.open_incidents,
+          total_orgs: u.orgs_count ?? 0,
+          total_members: u.total_users ?? 0,
+          auth_success_rate: v.success_rate ?? 100,
+          total_devices: u.apps_count ?? 0,
+          online_devices: u.apps_count ?? 0,
+          total_auth_today: v.total_verifications ?? 0,
+          enrolled_members: u.enrolled_users ?? 0,
+          enrollment_rate: u.enrollment_rate ?? 100,
+          active_projects: u.apps_count ?? 0,
+          open_incidents: p.threats ?? 0,
         });
 
         if (analyticsRes.data && analyticsRes.data.daily_stats) {
