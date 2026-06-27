@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./frontend/public/logo.png" alt="NeoFace Logo" width="120" />
+<img src="./frontend/public/newlogo.png" alt="NeoFace Logo" width="120" />
 
 # NeoFace
 
