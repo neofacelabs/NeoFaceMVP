@@ -67,6 +67,8 @@ export function FirebaseAuthProvider({
       pathname === "/login" ||
       pathname === "/register" ||
       pathname === "/pricing" ||
+      pathname === "/about" ||
+      pathname === "/features" ||
       pathname === "/" ||
       pathname.startsWith("/api/");
 
