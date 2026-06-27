@@ -17,6 +17,8 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import logger
+
 from app.core.database import get_db
 from app.core.security import JWTHandler, TokenData, get_current_user_token
 
