@@ -12,6 +12,7 @@ export interface User {
   email: string;
   phone?: string;
   role: "user" | "admin";
+  org_role?: string;
   is_active: boolean;
   is_enrolled: boolean;
   created_at: string;

@@ -52,6 +52,7 @@ function mockUserForEmail(email: string): User {
     name: isSuper ? "Super Admin" : isOrg ? "Org Admin" : "Member",
     email,
     role: isSuper ? "admin" : "user",
+    org_role: isOrg ? "admin" : undefined,
     is_active: true,
     is_enrolled: true,
     created_at: new Date().toISOString(),
