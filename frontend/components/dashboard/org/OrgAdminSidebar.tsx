@@ -77,16 +77,21 @@ export function OrgAdminSidebar({ orgSlug, orgName }: OrgAdminSidebarProps) {
         )}
       >
         {!sidebarCollapsed && (
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] border border-white/[0.09]">
-              <Building2 className="h-3.5 w-3.5 text-white/50" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[12px] font-bold text-white">{orgName}</p>
-              <p className="text-[9.5px] font-medium uppercase tracking-wider text-white/30">
-                Organization Admin
-              </p>
-            </div>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/newlogo.png"
+              alt="NeoFace"
+              style={{ height: "16px", width: "auto", objectFit: "contain", opacity: 0.85, display: "block" }}
+            />
+            <p className="truncate text-[9px] font-semibold uppercase tracking-widest text-white/35">
+              {orgName}
+            </p>
+          </div>
+        )}
+        {sidebarCollapsed && (
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.06] border border-white/[0.09]">
+            <Building2 className="h-3.5 w-3.5 text-white/50" />
           </div>
         )}
 

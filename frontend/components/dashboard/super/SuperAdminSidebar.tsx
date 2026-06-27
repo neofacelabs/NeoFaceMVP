@@ -69,16 +69,21 @@ export function SuperAdminSidebar() {
         )}
       >
         {!sidebarCollapsed && (
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#00E5A8]/20 to-[#0EA5E9]/15 border border-[#00E5A8]/20">
-              <Zap className="h-3.5 w-3.5 text-[#00E5A8]" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[12px] font-bold text-white">NeoFace</p>
-              <p className="text-[9.5px] font-medium uppercase tracking-wider text-[#00E5A8]/60">
-                Super Admin
-              </p>
-            </div>
+          <div className="flex items-center gap-2 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/newlogo.png"
+              alt="NeoFace"
+              style={{ height: "17px", width: "auto", objectFit: "contain", opacity: 0.88, display: "block", flexShrink: 0 }}
+            />
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-[#00E5A8]/70 shrink-0">
+              Super Admin
+            </p>
+          </div>
+        )}
+        {sidebarCollapsed && (
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#00E5A8]/20 to-[#0EA5E9]/15 border border-[#00E5A8]/20">
+            <Zap className="h-3.5 w-3.5 text-[#00E5A8]" />
           </div>
         )}
 

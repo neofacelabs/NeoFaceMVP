@@ -125,26 +125,31 @@ export function ProjectSidebar({ orgSlug, projectId, projectName, template }: Pr
         )}
       >
         {!sidebarCollapsed && (
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${
-                isEducation
-                  ? "bg-[#00E5A8]/[0.07] border-[#00E5A8]/20"
-                  : "bg-[#0EA5E9]/[0.07] border-[#0EA5E9]/20"
-              }`}
-            >
-              {isEducation ? (
-                <GraduationCap className="h-3.5 w-3.5 text-[#00E5A8]" />
-              ) : (
-                <ShieldCheck className="h-3.5 w-3.5 text-[#38BDF8]" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[11.5px] font-bold text-white">{projectName}</p>
-              <p className={`text-[9px] font-medium uppercase tracking-wider ${isEducation ? "text-[#00E5A8]/60" : "text-[#38BDF8]/60"}`}>
-                {isEducation ? "Education" : "Physical Security"}
-              </p>
-            </div>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/newlogo.png"
+              alt="NeoFace"
+              style={{ height: "16px", width: "auto", objectFit: "contain", opacity: 0.85, display: "block" }}
+            />
+            <p className={`truncate text-[9px] font-semibold uppercase tracking-widest ${isEducation ? "text-[#00E5A8]/60" : "text-[#38BDF8]/60"}`}>
+              {projectName}
+            </p>
+          </div>
+        )}
+        {sidebarCollapsed && (
+          <div
+            className={`flex h-7 w-7 items-center justify-center rounded-lg border ${
+              isEducation
+                ? "bg-[#00E5A8]/[0.07] border-[#00E5A8]/20"
+                : "bg-[#0EA5E9]/[0.07] border-[#0EA5E9]/20"
+            }`}
+          >
+            {isEducation ? (
+              <GraduationCap className="h-3.5 w-3.5 text-[#00E5A8]" />
+            ) : (
+              <ShieldCheck className="h-3.5 w-3.5 text-[#38BDF8]" />
+            )}
           </div>
         )}
 

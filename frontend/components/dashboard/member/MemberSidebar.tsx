@@ -49,16 +49,21 @@ export function MemberSidebar() {
         )}
       >
         {!sidebarCollapsed && (
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#00E5A8]/20 to-[#0EA5E9]/15 border border-[#00E5A8]/20">
-              <Fingerprint className="h-3.5 w-3.5 text-[#00E5A8]" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[12px] font-bold text-white">My Identity</p>
-              <p className="text-[9.5px] font-medium uppercase tracking-wider text-[#00E5A8]/60">
-                Member Portal
-              </p>
-            </div>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/newlogo.png"
+              alt="NeoFace"
+              style={{ height: "16px", width: "auto", objectFit: "contain", opacity: 0.85, display: "block" }}
+            />
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-[#00E5A8]/70">
+              Member Portal
+            </p>
+          </div>
+        )}
+        {sidebarCollapsed && (
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#00E5A8]/20 to-[#0EA5E9]/15 border border-[#00E5A8]/20">
+            <Fingerprint className="h-3.5 w-3.5 text-[#00E5A8]" />
           </div>
         )}
 

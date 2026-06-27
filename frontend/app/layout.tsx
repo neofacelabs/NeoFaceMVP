@@ -1,82 +1,43 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Toaster } from "sonner";
+import { Providers } from "@/app/providers";
+import "./webflow.css";
+import "./main.css";
 import "./globals.css";
-import { Providers } from "./providers";
-import { SmoothScroll } from "@/components/core/SmoothScroll";
-import { NoiseOverlay } from "@/components/core/NoiseOverlay";
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-plus-jakarta",
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: {
-    default: "NeoFace Labs — Biometric Authentication as a Service",
-    template: "%s | NeoFace Labs",
-  },
-  description:
-    "Building the infrastructure where face, fingerprint, and iris intelligence power authentication, trust, and digital identity.",
-  keywords: [
-    "biometric identity",
-    "face recognition",
-    "identity infrastructure",
-    "liveness detection",
-    "authentication API",
-    "iris verification",
-    "fingerprint authentication",
-    "identity layer",
-  ],
-  authors: [{ name: "NeoFace" }],
-  icons: {
-    icon: "/Favicon.png",
-    apple: "/Favicon.png",
-    shortcut: "/Favicon.png",
-  },
+  title: "NeoFace Labs — Enterprise Biometric Identity & Trust Layer",
+  description: "The identity layer of the next internet. Production-ready multi-modal biometrics with advanced deepfake and liveness detection.",
+  keywords: ["biometrics", "authentication", "face id", "iris scan", "fingerprint verification", "deepfake detection", "liveness check", "trust score", "identity engine"],
+  authors: [{ name: "NeoFace Labs Team" }],
   openGraph: {
+    title: "NeoFace Labs — Enterprise Biometric Identity & Trust Layer",
+    description: "Multi-modal biometric authentication for the post-password era. Secure authentication APIs & SDKs.",
     type: "website",
-    title: "NeoFace Labs — Biometric Authentication as a Service",
-    description:
-      "Building the infrastructure where face, fingerprint, and iris intelligence power authentication, trust, and digital identity.",
-    siteName: "NeoFace Labs",
-    images: [{ url: "/Favicon.png", width: 512, height: 512, alt: "NeoFace Labs" }],
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "NeoFace Labs — Biometric Authentication as a Service",
-    description:
-      "Building the infrastructure where face, fingerprint, and iris intelligence power authentication, trust, and digital identity.",
-    images: ["/Favicon.png"],
-  },
-  robots: { index: true, follow: true },
 };
 
-export const viewport: Viewport = {
-  themeColor: "#000000",
-  colorScheme: "dark",
-};
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
-      <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased bg-black`}>
-        <SmoothScroll>
-          <Providers>
-            <NoiseOverlay />
-            {children}
-            <Toaster
-              theme="dark"
-              position="bottom-right"
-              toastOptions={{
-                style: {
-                  background: "rgba(10,10,10,0.95)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  color: "#fff",
-                  backdropFilter: "blur(20px)",
-                  borderRadius: "12px",
-                  fontSize: "13px",
-                },
-              }}
-            />
-          </Providers>
-        </SmoothScroll>
+    <html lang="en" className={`lenis dark ${plusJakarta.variable} ${GeistSans.variable} ${GeistMono.variable}`}>
+      <head />
+      <body className="font-sans antialiased bg-black text-white min-h-screen">
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );
