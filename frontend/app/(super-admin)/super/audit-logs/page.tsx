@@ -42,30 +42,16 @@ const getActionLabel = (action: string) => {
   return labels[action] || action.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 };
 
+import { useAuditLogs } from "@/lib/api";
+
 export default function AuditLogsPage() {
   const [search, setSearch] = useState("");
   const [severityFilter, setSeverityFilter] = useState<"all" | "info" | "warning" | "critical">("all");
-  const [logs, setLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  async function loadLogs() {
-    try {
-      const res = await apiClient.get("audit-logs");
-      setLogs(res.data.items || []);
-    } catch (err) {
-      console.error("Failed to load audit logs:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadLogs();
-  }, []);
+  const { data, isLoading } = useAuditLogs(1, 100, search || undefined);
 
   const handleExport = async () => {
     try {
-      const res = await apiClient.get("audit-logs/export", { responseType: "blob" });
+      const res = await apiClient.get("admin/reports/export?template_id=auth-activity-summary&format=csv", { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -79,7 +65,7 @@ export default function AuditLogsPage() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-[#00E5A8]" />
@@ -87,23 +73,24 @@ export default function AuditLogsPage() {
     );
   }
 
+  const logs = data?.items || [];
+
   const mappedLogs = logs.map((log: any) => {
-    const meta = log.metadata_ || {};
-    const severity = meta.severity || (log.event_type.includes("deleted") || log.event_type.includes("suspended") ? "warning" : "info");
+    const severity = log.action.includes("delete") || log.action.includes("suspend") || log.action.includes("lockdown") ? "critical" : "info";
     return {
       id: log.id,
-      action: log.event_type,
-      actor_name: meta.actor_name || (log.actor_id ? `User (${log.actor_id.slice(0, 8)})` : "System"),
-      actor_role: meta.actor_role || "Administrator",
-      target: meta.target || log.entity_type || "N/A",
-      details: meta.details || (log.entity_id ? `ID: ${log.entity_id}` : ""),
-      ip_address: log.ip_address || "N/A",
-      timestamp: log.created_at,
+      action: log.action,
+      actor_name: log.actor_name || "System",
+      actor_role: log.actor_email || "system@neoface.io",
+      target: log.details?.target || "System",
+      details: log.details?.details || "",
+      ip_address: log.ip_address || "127.0.0.1",
+      timestamp: log.timestamp,
       severity: severity as "info" | "warning" | "critical",
     };
   });
 
-  const filtered = mappedLogs.filter((log) => {
+  const filtered = mappedLogs.filter((log: any) => {
     const matchSearch = search ? log.actor_name.toLowerCase().includes(search.toLowerCase()) || log.action.toLowerCase().includes(search.toLowerCase()) || log.target.toLowerCase().includes(search.toLowerCase()) : true;
     const matchSev = severityFilter === "all" ? true : log.severity === severityFilter;
     return matchSearch && matchSev;
@@ -125,9 +112,9 @@ export default function AuditLogsPage() {
 
       <KPIGrid columns={4}>
         <KPICard label="Total Events" value={mappedLogs.length} index={0} />
-        <KPICard label="Critical Events" value={mappedLogs.filter(l => l.severity === "critical").length} color="error" index={1} />
-        <KPICard label="Warnings" value={mappedLogs.filter(l => l.severity === "warning").length} color="warning" index={2} />
-        <KPICard label="Unique Actors" value={new Set(mappedLogs.map(l => l.actor_name)).size} index={3} color="accent" />
+        <KPICard label="Critical Events" value={mappedLogs.filter((l: any) => l.severity === "critical").length} color="error" index={1} />
+        <KPICard label="Warnings" value={mappedLogs.filter((l: any) => l.severity === "warning").length} color="warning" index={2} />
+        <KPICard label="Unique Actors" value={new Set(mappedLogs.map((l: any) => l.actor_name)).size} index={3} color="accent" />
       </KPIGrid>
 
       <ChartCard title="Event Log" description="All administrative actions — immutable audit trail" index={0} className="p-0 overflow-hidden">
@@ -159,8 +146,8 @@ export default function AuditLogsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((log, i) => {
-              const sev = severityColors[log.severity];
+            {filtered.map((log: any, i: number) => {
+              const sev = severityColors[log.severity as "info" | "warning" | "critical"];
               return (
                 <motion.tr
                   key={log.id}

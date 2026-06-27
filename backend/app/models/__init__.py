@@ -39,6 +39,8 @@ from app.models.audit_event import AuditEvent
 from app.models.webhook import WebhookEndpoint, WebhookDelivery
 from app.models.model_version import ModelVersion
 from app.models.waitlist_entry import WaitlistEntry
+from app.models.role import Role, user_roles
+from app.models.device import Device
 
 __all__ = [
     # Core
@@ -72,4 +74,7 @@ __all__ = [
     "WebhookDelivery",
     "ModelVersion",
     "WaitlistEntry",
+    "Role",
+    "user_roles",
+    "Device",
 ]

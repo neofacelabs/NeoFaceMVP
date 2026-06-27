@@ -135,6 +135,21 @@ CREATE TABLE IF NOT EXISTS fingerprint_templates (
     source_image_bytes bytea
 );
 
+-- 8.5 Roles and User Roles for Platform RBAC
+CREATE TABLE IF NOT EXISTS roles (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name character varying(100) UNIQUE NOT NULL,
+    permissions text[] NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS user_roles (
+    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, role_id)
+);
+
 -- 9. Identities
 CREATE TABLE IF NOT EXISTS identities (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -143,6 +158,12 @@ CREATE TABLE IF NOT EXISTS identities (
     external_user_id character varying(255) NOT NULL,
     enrollment_status character varying(50) NOT NULL DEFAULT 'pending',
     face_embedding_id uuid REFERENCES face_embeddings(id) ON DELETE SET NULL,
+    identity_type character varying(50) NOT NULL DEFAULT 'member',
+    site character varying(255),
+    status character varying(50) NOT NULL DEFAULT 'active',
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    is_fingerprint_enrolled boolean NOT NULL DEFAULT false,
+    is_iris_enrolled boolean NOT NULL DEFAULT false,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     updated_at timestamp with time zone NOT NULL DEFAULT now()
 );

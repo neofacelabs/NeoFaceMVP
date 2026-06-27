@@ -260,7 +260,7 @@ export function TrustTerminal() {
         type: assertion.type,
       };
 
-      const { data } = await terminalApi.fingerprintComplete(body);
+      const { data } = await terminalApi.fingerprintComplete(body as any);
 
       // terminal/complete returns {identified, confidence, message, user}
       setResult(data as IdentityResult);

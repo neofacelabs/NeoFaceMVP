@@ -397,3 +397,15 @@ export const apiClient = {
   patch: (path: string, data?: any, config?: any) => api.patch(getFullPath(path), data, config),
   delete: (path: string, config?: any) => api.delete(getFullPath(path), config),
 };
+
+export * from "./api/organizations";
+export * from "./api/projects";
+export * from "./api/identities";
+export * from "./api/authentication";
+export * from "./api/devices";
+export * from "./api/security";
+export * from "./api/reports";
+export * from "./api/integrations";
+export * from "./api/audit";
+export * from "./api/notifications";
+export * from "./api/settings";

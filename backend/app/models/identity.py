@@ -9,7 +9,7 @@ enrollment_status: pending | enrolled | failed | revoked
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, String, func, JSON, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -63,6 +63,41 @@ class Identity(Base):
         ForeignKey("face_embeddings.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
+    )
+    identity_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="member",
+        server_default="member",
+    )
+    site: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="active",
+        server_default="active",
+    )
+    metadata_fields: Mapped[dict] = mapped_column(
+        "metadata",
+        JSON,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+    is_fingerprint_enrolled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+    is_iris_enrolled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -65,6 +65,16 @@ from app.api.admin import metrics as admin_metrics
 from app.api.admin import fraud as admin_fraud
 from app.api.admin import models as admin_models
 from app.api.admin import infrastructure as admin_infra
+from app.api.admin import projects as admin_projects
+from app.api.admin import identities as admin_identities
+from app.api.admin import authentication as admin_authentication
+from app.api.admin import devices as admin_devices
+from app.api.admin import security as admin_security
+from app.api.admin import reports as admin_reports
+from app.api.admin import integrations as admin_integrations
+from app.api.admin import audit_logs as admin_audit_logs
+from app.api.admin import notifications as admin_notifications
+from app.api.admin import settings as admin_settings
 from app.core.config import settings
 from app.core.database import close_db, init_db
 from app.core.logging import logger, setup_logging
@@ -370,6 +380,16 @@ InsightFace • ArcFace • MediaPipe • FastAPI • PostgreSQL • Redis • C
     app.include_router(admin_fraud.router, prefix=ADMIN_PREFIX)
     app.include_router(admin_models.router, prefix=ADMIN_PREFIX)
     app.include_router(admin_infra.router, prefix=ADMIN_PREFIX)
+    app.include_router(admin_projects.router, prefix=ADMIN_PREFIX)
+    app.include_router(admin_identities.router, prefix=ADMIN_PREFIX)
+    app.include_router(admin_authentication.router, prefix=ADMIN_PREFIX)
+    app.include_router(admin_devices.router, prefix=ADMIN_PREFIX)
+    app.include_router(admin_security.router, prefix=ADMIN_PREFIX)
+    app.include_router(admin_reports.router, prefix=ADMIN_PREFIX)
+    app.include_router(admin_integrations.router, prefix=ADMIN_PREFIX)
+    app.include_router(admin_audit_logs.router, prefix=ADMIN_PREFIX)
+    app.include_router(admin_notifications.router, prefix=ADMIN_PREFIX)
+    app.include_router(admin_settings.router, prefix=ADMIN_PREFIX)
 
     # ── Root health endpoint ──────────────────────────────────────────────────
     @app.get("/", tags=["Health"], summary="Root health check")

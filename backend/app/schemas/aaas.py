@@ -133,6 +133,10 @@ class ApiKeyCreatedResponse(ApiKeyResponse):
 class IdentityCreate(BaseModel):
     external_user_id: str = Field(..., min_length=1, max_length=255)
     application_id: uuid.UUID
+    identity_type: str = "member"
+    site: str | None = None
+    status: str = "active"
+    metadata_fields: dict = Field(default_factory=dict)
 
 
 class IdentityResponse(BaseModel):
@@ -144,6 +148,12 @@ class IdentityResponse(BaseModel):
     external_user_id: str
     enrollment_status: str
     face_embedding_id: uuid.UUID | None
+    identity_type: str
+    site: str | None
+    status: str
+    metadata_fields: dict
+    is_fingerprint_enrolled: bool
+    is_iris_enrolled: bool
     created_at: datetime
     updated_at: datetime
 

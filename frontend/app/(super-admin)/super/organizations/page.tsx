@@ -34,61 +34,40 @@ const orgStatusColors: Record<string, string> = {
   churned: "text-white/25 bg-white/[0.03] border-white/[0.06]",
 };
 
-import { apiClient } from "@/lib/api";
+import { useOrganizations, useUpdateOrganization } from "@/lib/api";
 import { toast } from "sonner";
 
 export default function OrganizationsPage() {
   const [search, setSearch] = React.useState("");
-  const [orgs, setOrgs] = React.useState<any[]>(mockOrganizations);
-  const [loading, setLoading] = React.useState(true);
-
-  const fetchOrgs = React.useCallback(async () => {
-    try {
-      const { data } = await apiClient.get("/admin/organizations?page=1&page_size=100");
-      if (data && data.items) {
-        const mapped = data.items.map((o: any) => {
-          // Find original mock org if exists to preserve industry/member count/owner name, or default
-          const mock = (mockOrganizations.find((m) => m.slug === o.slug || m.id === o.id) as any) || {};
-          return {
-            id: o.id,
-            name: o.name,
-            slug: o.slug,
-            owner_name: mock.owner_name || "Enterprise Admin",
-            industry: mock.industry || "Software & SaaS",
-            plan: o.plan || "pro",
-            member_count: mock.member_count || Math.floor(Math.random() * 450) + 12,
-            auth_count_30d: mock.auth_count_30d || Math.floor(Math.random() * 2500) + 80,
-            status: o.status || "active",
-            created_at: o.created_at,
-          };
-        });
-        setOrgs(mapped);
-      }
-    } catch (err) {
-      console.error("Failed to load organizations:", err);
-      toast.error("Failed to sync organizations with live backend");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    fetchOrgs();
-  }, [fetchOrgs]);
+  const { data, isLoading, refetch } = useOrganizations(1, 100, undefined, search || undefined);
+  const updateMutation = useUpdateOrganization();
 
   const handleUpdateStatus = async (orgId: string, status: string) => {
     try {
-      await apiClient.patch(`/admin/organizations/${orgId}`, { status });
+      await updateMutation.mutateAsync({ orgId, payload: { status } });
       toast.success(`Organization status updated to ${status}`);
-      fetchOrgs();
     } catch (err) {
       toast.error("Failed to update organization status");
     }
   };
 
-  const filtered = orgs.filter((org) =>
-    search ? org.name.toLowerCase().includes(search.toLowerCase()) || org.industry.toLowerCase().includes(search.toLowerCase()) : true
-  );
+  const orgs = (data?.items || []).map((o: any) => {
+    const mock = (mockOrganizations.find((m) => m.slug === o.slug || m.id === o.id) as any) || {};
+    return {
+      id: o.id,
+      name: o.name,
+      slug: o.slug,
+      owner_name: mock.owner_name || "Enterprise Admin",
+      industry: mock.industry || "Software & SaaS",
+      plan: o.plan || "pro",
+      member_count: mock.member_count || Math.floor(Math.random() * 450) + 12,
+      auth_count_30d: mock.auth_count_30d || Math.floor(Math.random() * 2500) + 80,
+      status: o.status || "active",
+      created_at: o.created_at,
+    };
+  });
+
+  const filtered = orgs;
 
   return (
     <div className="space-y-6">
@@ -152,7 +131,7 @@ export default function OrganizationsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((org, i) => (
+            {filtered.map((org: any, i: number) => (
               <motion.tr
                 key={org.id}
                 initial={{ opacity: 0, y: 6 }}

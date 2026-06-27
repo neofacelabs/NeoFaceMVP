@@ -22,12 +22,20 @@ class IdentityRepository:
         org_id: uuid.UUID,
         app_id: uuid.UUID,
         external_user_id: str,
+        identity_type: str = "member",
+        site: str | None = None,
+        status: str = "active",
+        metadata_fields: dict | None = None,
     ) -> Identity:
         identity = Identity(
             organization_id=org_id,
             application_id=app_id,
             external_user_id=external_user_id,
             enrollment_status="pending",
+            identity_type=identity_type,
+            site=site,
+            status=status,
+            metadata_fields=metadata_fields or {},
         )
         self.db.add(identity)
         await self.db.flush()
@@ -69,14 +77,53 @@ class IdentityRepository:
         page: int = 1,
         page_size: int = 50,
         app_id: uuid.UUID | None = None,
+        enrollment_status: str | None = None,
         status: str | None = None,
+        identity_type: str | None = None,
         search: str | None = None,
     ) -> tuple[list[Identity], int]:
         q = select(Identity).where(Identity.organization_id == org_id)
         if app_id:
             q = q.where(Identity.application_id == app_id)
+        if enrollment_status:
+            q = q.where(Identity.enrollment_status == enrollment_status)
         if status:
-            q = q.where(Identity.enrollment_status == status)
+            q = q.where(Identity.status == status)
+        if identity_type:
+            q = q.where(Identity.identity_type == identity_type)
+        if search:
+            q = q.where(
+                Identity.external_user_id.ilike(f"%{search}%")
+            )
+        count_q = select(func.count()).select_from(q.subquery())
+        total = (await self.db.execute(count_q)).scalar_one()
+        q = q.order_by(Identity.created_at.desc())
+        q = q.offset((page - 1) * page_size).limit(page_size)
+        identities = (await self.db.execute(q)).scalars().all()
+        return list(identities), total
+
+    async def list_all(
+        self,
+        page: int = 1,
+        page_size: int = 50,
+        org_id: uuid.UUID | None = None,
+        app_id: uuid.UUID | None = None,
+        enrollment_status: str | None = None,
+        status: str | None = None,
+        identity_type: str | None = None,
+        search: str | None = None,
+    ) -> tuple[list[Identity], int]:
+        q = select(Identity)
+        if org_id:
+            q = q.where(Identity.organization_id == org_id)
+        if app_id:
+            q = q.where(Identity.application_id == app_id)
+        if enrollment_status:
+            q = q.where(Identity.enrollment_status == enrollment_status)
+        if status:
+            q = q.where(Identity.status == status)
+        if identity_type:
+            q = q.where(Identity.identity_type == identity_type)
         if search:
             q = q.where(
                 Identity.external_user_id.ilike(f"%{search}%")

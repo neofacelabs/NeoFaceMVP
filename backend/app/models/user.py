@@ -169,6 +169,19 @@ class User(Base):
         cascade="all, delete-orphan",
         lazy="select",
     )
+    roles: Mapped[list["Role"]] = relationship(
+        "Role",
+        secondary="user_roles",
+        back_populates="users",
+        lazy="selectin",
+    )
+
+    @property
+    def permissions(self) -> list[str]:
+        perms = []
+        for r in self.roles:
+            perms.extend(r.permissions)
+        return list(set(perms))
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email} role={self.role}>"

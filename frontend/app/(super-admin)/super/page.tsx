@@ -145,9 +145,9 @@ export default function SuperAdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Platform Overview"
-        description="Real-time view of NeoFace Cloud — all organizations, AI models, and infrastructure."
-        breadcrumbs={[{ label: "NeoFace Super Admin" }, { label: "Overview" }]}
+        title="NeoFace Labs Control Center"
+        description="Enterprise Identity Infrastructure Platform snapshot — all organizations, projects, and security services."
+        breadcrumbs={[{ label: "NeoFace Labs" }, { label: "Control Center Overview" }]}
         actions={
           <span className="flex items-center gap-1.5 rounded-full border border-[#00E5A8]/20 bg-[#00E5A8]/8 px-3 py-1 text-[10.5px] font-medium text-[#00E5A8]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#00E5A8] animate-pulse" />
