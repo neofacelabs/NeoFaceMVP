@@ -40,6 +40,12 @@ class Device(Base):
         ForeignKey("applications.id", ondelete="SET NULL"),
         nullable=True,
     )
+    site_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("sites.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -55,6 +61,7 @@ class Device(Base):
     # Relationships
     organization: Mapped["Organization"] = relationship("Organization", lazy="select")  # noqa: F821
     application: Mapped["Application"] = relationship("Application", lazy="select")  # noqa: F821
+    site: Mapped["Site | None"] = relationship("Site", lazy="select")  # noqa: F821
 
     def __repr__(self) -> str:
         return f"<Device id={self.id} name={self.name} type={self.type} status={self.status}>"

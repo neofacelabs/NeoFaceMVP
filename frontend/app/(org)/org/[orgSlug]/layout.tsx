@@ -1,13 +1,11 @@
 "use client";
 
 import React from "react";
-import { DashboardLayout } from "@/components/dashboard/layouts/DashboardLayout";
-import { getOrgAdminNav } from "@/components/dashboard/layouts/DashboardSidebar";
-import { Building2 } from "lucide-react";
+import { OrgAdminLayout } from "@/components/dashboard/org/OrgAdminLayout";
 import { mockOrganizations } from "@/lib/mock-data/super-admin";
 import { usePathname } from "next/navigation";
 
-export default function OrgAdminLayout({
+export default function Layout({
   children,
   params,
 }: {
@@ -18,42 +16,21 @@ export default function OrgAdminLayout({
   const pathname = usePathname();
 
   const org = mockOrganizations.find((o) => o.slug === orgSlug) ?? {
-    name: orgSlug,
+    name: orgSlug.replace("-", " ").toUpperCase(),
     slug: orgSlug,
     industry: "",
     plan: "pro" as const,
   };
 
-  // Check if we are inside a project sub-page (and not the project creation page)
   const isProjectPage = pathname.split("/").includes("projects") && !pathname.endsWith("/projects/new");
 
   if (isProjectPage) {
     return <>{children}</>;
   }
 
-  const navItems = getOrgAdminNav(orgSlug);
-
-  const SidebarHeader = () => (
-    <div className="flex items-center gap-2.5 min-w-0">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] border border-white/[0.09]">
-        <Building2 className="h-3.5 w-3.5 text-white/50" />
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-[12px] font-bold text-white">{org.name}</p>
-        <p className="text-[9.5px] font-medium uppercase tracking-wider text-white/30">
-          Organization Admin
-        </p>
-      </div>
-    </div>
-  );
-
   return (
-    <DashboardLayout
-      navItems={navItems}
-      sidebarHeader={<SidebarHeader />}
-      topbarOrgName={org.name}
-    >
+    <OrgAdminLayout orgSlug={orgSlug} orgName={org.name}>
       {children}
-    </DashboardLayout>
+    </OrgAdminLayout>
   );
 }

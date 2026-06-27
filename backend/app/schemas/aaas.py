@@ -68,6 +68,7 @@ class ApplicationCreate(BaseModel):
     allowed_domains: list[str] | None = None
     webhook_url: str | None = None
     rate_limit: int = Field(default=100)
+    site_id: uuid.UUID | None = None
 
 
 class ApplicationUpdate(BaseModel):
@@ -79,6 +80,7 @@ class ApplicationUpdate(BaseModel):
     allowed_domains: list[str] | None = None
     webhook_url: str | None = None
     rate_limit: int | None = None
+    site_id: uuid.UUID | None = None
 
 
 class ApplicationResponse(BaseModel):
@@ -86,6 +88,7 @@ class ApplicationResponse(BaseModel):
 
     id: uuid.UUID
     organization_id: uuid.UUID
+    site_id: uuid.UUID | None = None
     name: str
     environment: str
     status: str
@@ -134,7 +137,7 @@ class IdentityCreate(BaseModel):
     external_user_id: str = Field(..., min_length=1, max_length=255)
     application_id: uuid.UUID
     identity_type: str = "member"
-    site: str | None = None
+    site_id: uuid.UUID | None = None
     status: str = "active"
     metadata_fields: dict = Field(default_factory=dict)
 
@@ -149,13 +152,23 @@ class IdentityResponse(BaseModel):
     enrollment_status: str
     face_embedding_id: uuid.UUID | None
     identity_type: str
-    site: str | None
+    site_id: uuid.UUID | None
     status: str
     metadata_fields: dict
     is_fingerprint_enrolled: bool
     is_iris_enrolled: bool
     created_at: datetime
     updated_at: datetime
+
+
+class IdentityUpdate(BaseModel):
+    external_user_id: str | None = None
+    application_id: uuid.UUID | None = None
+    identity_type: str | None = None
+    site_id: uuid.UUID | None = None
+    status: str | None = None
+    metadata_fields: dict | None = None
+
 
 
 # ── Authentication Session ─────────────────────────────────────────────────────
@@ -335,3 +348,68 @@ class InfraMetrics(BaseModel):
     queue_depth: int
     services: list[ServiceHealth]
     as_of: datetime
+
+
+# ── AaaS: Sites & Access Zones ────────────────────────────────────────────────
+
+class SiteCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: str | None = None
+
+
+class SiteUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    status: str | None = None
+
+
+class SiteResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    organization_id: uuid.UUID
+    name: str
+    description: str | None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class AccessZoneCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: str | None = None
+    site_id: uuid.UUID | None = None
+    allowed_identities: list[uuid.UUID] | None = None
+    allowed_projects: list[uuid.UUID] | None = None
+    allowed_schedule: dict | None = None
+    assigned_devices: list[uuid.UUID] | None = None
+    security_policies: dict | None = None
+
+
+class AccessZoneUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    site_id: uuid.UUID | None = None
+    allowed_identities: list[uuid.UUID] | None = None
+    allowed_projects: list[uuid.UUID] | None = None
+    allowed_schedule: dict | None = None
+    assigned_devices: list[uuid.UUID] | None = None
+    security_policies: dict | None = None
+
+
+class AccessZoneResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    organization_id: uuid.UUID
+    site_id: uuid.UUID | None
+    name: str
+    description: str | None
+    allowed_identities: list[uuid.UUID] | None
+    allowed_projects: list[uuid.UUID] | None
+    allowed_schedule: dict | None
+    assigned_devices: list[uuid.UUID] | None
+    security_policies: dict | None
+    created_at: datetime
+    updated_at: datetime
+

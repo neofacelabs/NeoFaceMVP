@@ -409,3 +409,6 @@ export * from "./api/integrations";
 export * from "./api/audit";
 export * from "./api/notifications";
 export * from "./api/settings";
+export * from "./api/sites";
+export * from "./api/access-zones";
+export * from "./api/roles";

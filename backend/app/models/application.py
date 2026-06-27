@@ -61,6 +61,12 @@ class Application(Base):
         default=100,
         server_default="100"
     )
+    site_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("sites.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -77,6 +83,10 @@ class Application(Base):
     organization: Mapped["Organization"] = relationship(  # noqa: F821
         "Organization",
         back_populates="applications",
+        lazy="select",
+    )
+    site: Mapped["Site | None"] = relationship(  # noqa: F821
+        "Site",
         lazy="select",
     )
     api_keys: Mapped[list["AaaSApiKey"]] = relationship(  # noqa: F821

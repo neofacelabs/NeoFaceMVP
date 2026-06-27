@@ -37,6 +37,10 @@ class IdentityService:
             org_id=org_id,
             app_id=schema.application_id,
             external_user_id=schema.external_user_id,
+            identity_type=schema.identity_type,
+            site_id=schema.site_id,
+            status=schema.status,
+            metadata_fields=schema.metadata_fields,
         )
         return IdentityResponse.model_validate(identity)
 
@@ -58,6 +62,8 @@ class IdentityService:
         page_size: int = 50,
         app_id: uuid.UUID | None = None,
         status_filter: str | None = None,
+        identity_type: str | None = None,
+        site_id: uuid.UUID | None = None,
         search: str | None = None,
     ) -> tuple[list[IdentityResponse], int]:
         identities, total = await self.repo.list_by_org(
@@ -66,6 +72,8 @@ class IdentityService:
             page_size=page_size,
             app_id=app_id,
             status=status_filter,
+            identity_type=identity_type,
+            site_id=site_id,
             search=search,
         )
         return [IdentityResponse.model_validate(i) for i in identities], total

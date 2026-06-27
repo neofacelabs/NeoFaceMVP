@@ -28,12 +28,29 @@ router = APIRouter(prefix="/projects", tags=["Projects"])
 async def list_projects(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
+    site_id: uuid.UUID | None = Query(default=None),
+    search: str | None = Query(default=None),
     ctx: OrgContext = Depends(require_scope("project:read")),
     db: AsyncSession = Depends(get_db),
 ) -> PagedResponse[ApplicationResponse]:
-    repo = OrganizationRepository(db)
-    apps, total = await repo.list_applications(ctx.org_id, page=page, page_size=page_size)
-    return PagedResponse(total=total, page=page, page_size=page_size, items=apps)
+    from sqlalchemy import select, func
+    from app.models.application import Application
+    
+    stmt = select(Application).where(Application.organization_id == ctx.org_id)
+    if site_id:
+        stmt = stmt.where(Application.site_id == site_id)
+    if search:
+        stmt = stmt.where(Application.name.ilike(f"%{search}%"))
+
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar_one()
+
+    stmt = stmt.order_by(Application.created_at.desc())
+    stmt = stmt.offset((page - 1) * page_size).limit(page_size)
+    apps = (await db.execute(stmt)).scalars().all()
+    
+    items = [ApplicationResponse.model_validate(a) for a in apps]
+    return PagedResponse(total=total, page=page, page_size=page_size, items=items)
 
 
 @router.post(

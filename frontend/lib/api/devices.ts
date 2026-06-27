@@ -3,7 +3,7 @@ import { apiClient } from "@/lib/api";
 
 export function useDevices(page = 1, pageSize = 20, type?: string, status?: string, search?: string) {
   return useQuery({
-    queryKey: ["admin", "devices", { page, pageSize, type, status, search }],
+    queryKey: ["devices", { page, pageSize, type, status, search }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append("page", String(page));
@@ -11,7 +11,7 @@ export function useDevices(page = 1, pageSize = 20, type?: string, status?: stri
       if (type) params.append("type", type);
       if (status) params.append("status", status);
       if (search) params.append("search", search);
-      const { data } = await apiClient.get(`admin/devices?${params.toString()}`);
+      const { data } = await apiClient.get(`devices?${params.toString()}`);
       return data;
     },
   });
@@ -19,9 +19,9 @@ export function useDevices(page = 1, pageSize = 20, type?: string, status?: stri
 
 export function useDeviceDetails(deviceId: string) {
   return useQuery({
-    queryKey: ["admin", "device", deviceId],
+    queryKey: ["device", deviceId],
     queryFn: async () => {
-      const { data } = await apiClient.get(`admin/devices/${deviceId}`);
+      const { data } = await apiClient.get(`devices/${deviceId}`);
       return data;
     },
     enabled: !!deviceId,
@@ -32,11 +32,11 @@ export function useCreateDevice() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: any) => {
-      const { data } = await apiClient.post("admin/devices", payload);
+      const { data } = await apiClient.post("devices", payload);
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "devices"] });
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
     },
   });
 }
@@ -45,12 +45,12 @@ export function useUpdateDevice() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ deviceId, payload }: { deviceId: string; payload: any }) => {
-      const { data } = await apiClient.patch(`admin/devices/${deviceId}`, payload);
+      const { data } = await apiClient.patch(`devices/${deviceId}`, payload);
       return data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "devices"] });
-      queryClient.invalidateQueries({ queryKey: ["admin", "device", variables.deviceId] });
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      queryClient.invalidateQueries({ queryKey: ["device", variables.deviceId] });
     },
   });
 }
@@ -59,11 +59,25 @@ export function useDeleteDevice() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (deviceId: string) => {
-      const { data } = await apiClient.delete(`admin/devices/${deviceId}`);
+      const { data } = await apiClient.delete(`devices/${deviceId}`);
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "devices"] });
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+    },
+  });
+}
+
+export function useRebootDevice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (deviceId: string) => {
+      const { data } = await apiClient.post(`devices/${deviceId}/reboot`);
+      return data;
+    },
+    onSuccess: (_, deviceId) => {
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      queryClient.invalidateQueries({ queryKey: ["device", deviceId] });
     },
   });
 }

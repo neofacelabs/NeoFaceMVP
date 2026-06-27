@@ -70,9 +70,11 @@ class Identity(Base):
         default="member",
         server_default="member",
     )
-    site: Mapped[str | None] = mapped_column(
-        String(255),
+    site_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("sites.id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
     )
     status: Mapped[str] = mapped_column(
         String(50),
@@ -120,6 +122,10 @@ class Identity(Base):
     application: Mapped["Application"] = relationship(  # noqa: F821
         "Application",
         back_populates="identities",
+        lazy="select",
+    )
+    site: Mapped["Site | None"] = relationship(  # noqa: F821
+        "Site",
         lazy="select",
     )
     sessions: Mapped[list["AuthenticationSession"]] = relationship(  # noqa: F821

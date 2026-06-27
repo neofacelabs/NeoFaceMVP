@@ -23,7 +23,7 @@ class IdentityRepository:
         app_id: uuid.UUID,
         external_user_id: str,
         identity_type: str = "member",
-        site: str | None = None,
+        site_id: uuid.UUID | None = None,
         status: str = "active",
         metadata_fields: dict | None = None,
     ) -> Identity:
@@ -33,7 +33,7 @@ class IdentityRepository:
             external_user_id=external_user_id,
             enrollment_status="pending",
             identity_type=identity_type,
-            site=site,
+            site_id=site_id,
             status=status,
             metadata_fields=metadata_fields or {},
         )
@@ -80,6 +80,7 @@ class IdentityRepository:
         enrollment_status: str | None = None,
         status: str | None = None,
         identity_type: str | None = None,
+        site_id: uuid.UUID | None = None,
         search: str | None = None,
     ) -> tuple[list[Identity], int]:
         q = select(Identity).where(Identity.organization_id == org_id)
@@ -91,6 +92,8 @@ class IdentityRepository:
             q = q.where(Identity.status == status)
         if identity_type:
             q = q.where(Identity.identity_type == identity_type)
+        if site_id:
+            q = q.where(Identity.site_id == site_id)
         if search:
             q = q.where(
                 Identity.external_user_id.ilike(f"%{search}%")

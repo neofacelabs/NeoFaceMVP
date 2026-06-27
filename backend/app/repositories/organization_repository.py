@@ -106,6 +106,7 @@ class OrganizationRepository:
     ) -> Application:
         app = Application(
             organization_id=org_id,
+            site_id=schema.site_id,
             name=schema.name,
             environment=schema.environment,
             description=schema.description,
@@ -128,7 +129,7 @@ class OrganizationRepository:
         app = result.scalar_one_or_none()
         if not app:
             return None
-        data = schema.model_dump(exclude_none=True)
+        data = schema.model_dump(exclude_unset=True)
         for key, val in data.items():
             setattr(app, key, val)
         await self.db.flush()

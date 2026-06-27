@@ -41,6 +41,8 @@ from app.models.model_version import ModelVersion
 from app.models.waitlist_entry import WaitlistEntry
 from app.models.role import Role, user_roles
 from app.models.device import Device
+from app.models.site import Site
+from app.models.access_zone import AccessZone
 
 __all__ = [
     # Core
@@ -77,4 +79,6 @@ __all__ = [
     "Role",
     "user_roles",
     "Device",
+    "Site",
+    "AccessZone",
 ]
