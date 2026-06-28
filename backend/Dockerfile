@@ -83,6 +83,10 @@ RUN chmod +x ./docker-entrypoint.sh
 RUN mkdir -p /app/storage/faces /app/logs /app/.insightface /app/models \
     && chown -R neoface:neoface /app/storage /app/logs /app/.insightface /app/models
 
+# Copy scripts and pre-download ONNX models during build
+COPY --chown=neoface:neoface ./scripts ./scripts
+RUN python scripts/download_models.py --all && chown -R neoface:neoface /app/models
+
 # InsightFace model cache directory
 ENV INSIGHTFACE_HOME=/app/.insightface
 
