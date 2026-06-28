@@ -63,6 +63,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Non-root user for security
 RUN groupadd -r neoface && useradd -r -g neoface -s /bin/false neoface
 
+# Force IPv4 preference for getaddrinfo (resolves psycopg2/libpq IPv6 connection issues on Render)
+RUN echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
+
 WORKDIR /app
 
 # Copy virtual environment from builder
