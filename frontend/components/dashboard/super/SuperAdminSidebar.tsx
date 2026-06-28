@@ -25,6 +25,7 @@ import {
   Layers,
   Shield,
   Zap,
+  ScanFace,
 } from "lucide-react";
 
 export const superAdminNav = [
@@ -35,6 +36,7 @@ export const superAdminNav = [
   { id: "authentication", label: "Authentication", href: "/super/authentication", icon: ZapIcon, section: "OPERATIONS" },
   { id: "devices", label: "Devices", href: "/super/devices", icon: HardDrive, section: "OPERATIONS" },
   { id: "security", label: "Security Center", href: "/super/security", icon: Shield, section: "OPERATIONS" },
+  { id: "trust-terminal", label: "Trust Terminal", href: "/super/trust-terminal", icon: ScanFace, badge: "LIVE", section: "OPERATIONS" },
   { id: "ai-models", label: "AI Engine", href: "/super/ai-models", icon: Brain, section: "OPERATIONS" },
   { id: "infrastructure", label: "Infrastructure", href: "/super/infrastructure", icon: Server, section: "OPERATIONS" },
   { id: "reports", label: "Reports", href: "/super/reports", icon: BarChart3, section: "BUSINESS" },
@@ -131,7 +133,14 @@ export function SuperAdminSidebar() {
                   >
                     <Icon className="h-[15px] w-[15px] shrink-0" />
                     {!sidebarCollapsed && (
-                      <span className="flex-1">{item.label}</span>
+                      <>
+                        <span className="flex-1">{item.label}</span>
+                        {item.badge !== undefined && (
+                          <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-[#00E5A8]/15 px-1 text-[9px] font-bold text-[#00E5A8]">
+                            {item.badge}
+                          </span>
+                        )}
+                      </>
                     )}
                   </Link>
                 </div>

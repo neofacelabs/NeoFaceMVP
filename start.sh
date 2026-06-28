@@ -214,7 +214,7 @@ elif [ -n "$LOCK_FILE" ]; then
 fi
 
 if [ "$NEEDS_NPM_INSTALL" = true ]; then
-    npm install --prefer-offline
+    npm install --prefer-offline --legacy-peer-deps
     # Save hash of lock file
     if [ -n "$LOCK_FILE" ]; then
         md5 -q "$LOCK_FILE" 2>/dev/null > "$NPM_HASH_FILE" || \

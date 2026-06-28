@@ -63,7 +63,7 @@ setup: ## Copy .env files, install frontend deps, download models
 
 	@# Frontend npm install
 	@echo "  📦 Installing frontend dependencies..."
-	@cd frontend && npm install --prefer-offline --silent
+	@cd frontend && npm install --prefer-offline --silent --legacy-peer-deps
 	@echo "  ✅ Frontend dependencies installed"
 
 	@# Models
