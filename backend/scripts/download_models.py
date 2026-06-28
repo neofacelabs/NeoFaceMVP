@@ -426,6 +426,36 @@ def print_status() -> None:
         print("   → Auto-downloaded on first backend startup (requires internet)")
 
 
+def download_insightface_buffalo(skip_existing: bool = True) -> bool:
+    insightface_home = os.environ.get("INSIGHTFACE_HOME", "/app/.insightface")
+    buffalo_dir = Path(insightface_home) / "models" / "buffalo_l"
+    if skip_existing and buffalo_dir.exists() and any(buffalo_dir.glob("*.onnx")):
+        print(f"\n   ⏭  InsightFace buffalo_l already exists — skipping")
+        return True
+    
+    url = "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip"
+    dest_zip = buffalo_dir.parent / "buffalo_l.zip"
+    buffalo_dir.mkdir(parents=True, exist_ok=True)
+    
+    print(f"\n⬇  InsightFace buffalo_l model package")
+    print(f"   URL : {url}")
+    print(f"   Dest: {dest_zip}")
+    
+    try:
+        urllib.request.urlretrieve(url, dest_zip, _progress_hook)
+        print()
+        print("   📦 Extracting buffalo_l.zip...")
+        import zipfile
+        with zipfile.ZipFile(dest_zip, "r") as zip_ref:
+            zip_ref.extractall(buffalo_dir)
+        dest_zip.unlink()
+        print(f"   ✅ Saved and extracted buffalo_l models to {buffalo_dir}")
+        return True
+    except Exception as exc:
+        print(f"\n   ❌ Failed to download/extract buffalo_l: {exc}")
+        return False
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────
@@ -475,6 +505,8 @@ def main() -> None:
                 results[name] = download_model(name, info, skip_existing)
             else:
                 print(f"\n   ⏭  {info['dest'].name} — requires --export (PyTorch) or --model {name}")
+        # Pre-download InsightFace buffalo_l model to avoid runtime downloads
+        results["buffalo_l"] = download_insightface_buffalo(skip_existing)
 
     if args.model:
         for name in args.model:
