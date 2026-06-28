@@ -7,6 +7,7 @@ Endpoints:
 """
 
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
@@ -285,33 +286,24 @@ async def delete_enrollment(
     deleted = await embedding_repo.delete_by_user(user_id)
 
     # Update enrollment flag
-    from sqlalchemy import update
-    from app.models.user import User
-    await enrollment_service.db.execute(
-        update(User)
-        .where(User.id == user_id)
-        .values(is_enrolled=False)
-    )
+    await enrollment_service.db.collection("users").document(str(user_id)).update({
+        "is_enrolled": False,
+        "updated_at": datetime.now(timezone.utc),
+    })
 
     # Revert matching Identity records in multitenant AaaS to "pending"
     try:
-        from app.models.identity import Identity
-        from sqlalchemy import or_
-        await enrollment_service.db.execute(
-            update(Identity)
-            .where(
-                or_(
-                    Identity.external_user_id == user.email,
-                    Identity.external_user_id.like(f'%"{user.email}"%')
-                )
-            )
-            .values(
-                enrollment_status="pending",
-                face_embedding_id=None
-            )
-        )
+        identities = await enrollment_service.db.collection("identities").get()
+        for ident_doc in identities:
+            idata = ident_doc.to_dict()
+            ext_id = idata.get("external_user_id")
+            if ext_id and (user.email in ext_id or str(user.id) in ext_id):
+                await ident_doc.reference.update({
+                    "enrollment_status": "pending",
+                    "face_embedding_id": None
+                })
     except Exception as exc:
-        logger.warning("Failed to reset Identity status during admin delete enrollment", email=user.email, error=str(exc))
+        logger.warning(f"Failed to reset Identity status during admin delete enrollment: {exc}")
 
     logger.info(
         "Enrollment deleted by admin",

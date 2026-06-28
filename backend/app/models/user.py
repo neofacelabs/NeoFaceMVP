@@ -178,10 +178,9 @@ class User(Base):
 
     @property
     def permissions(self) -> list[str]:
-        perms = []
-        for r in self.roles:
-            perms.extend(r.permissions)
-        return list(set(perms))
+        if getattr(self, "role", "user") == "admin":
+            return ["*"]
+        return ["identity:read", "session:read"]
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email} role={self.role}>"

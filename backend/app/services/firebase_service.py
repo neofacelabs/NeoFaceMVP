@@ -46,6 +46,8 @@ def _ensure_initialized() -> bool:
 
         try:
             cred_dict = json.loads(settings.FIREBASE_CREDENTIALS_JSON)
+            if "private_key" in cred_dict:
+                cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
             cred = credentials.Certificate(cred_dict)
             # Guard against double-init in hot-reload scenarios
             if not firebase_admin._apps:

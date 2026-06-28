@@ -472,7 +472,7 @@ export default function MemberBiometricsPage() {
           <div className="space-y-2 text-[11.5px]">
             {[
               { label: "Templates", value: faceEnrolled ? `${faceCount} face template` : "None" },
-              { label: "Enrolled", value: faceEnrolled && profile?.created_at ? format(new Date(profile.created_at), "MMM d, yyyy") : "N/A" },
+              { label: "Enrolled", value: faceEnrolled && bioStatus?.face?.enrolled_at ? format(new Date(bioStatus.face.enrolled_at), "MMM d, yyyy h:mm a") : "N/A" },
               { label: "Last used", value: faceEnrolled ? lastFaceUsed : "N/A" },
               { label: "Avg match score", value: faceEnrolled ? avgFaceScore : "N/A" },
             ].map((row) => (
@@ -534,7 +534,7 @@ export default function MemberBiometricsPage() {
           <div className="space-y-2 text-[11.5px]">
             {[
               { label: "Templates", value: fpEnrolled ? `${fpCount} finger template(s)` : "None" },
-              { label: "Enrolled", value: fpEnrolled && profile?.created_at ? format(new Date(profile.created_at), "MMM d, yyyy") : "N/A" },
+              { label: "Enrolled", value: fpEnrolled && bioStatus?.fingerprint?.enrolled_at ? format(new Date(bioStatus.fingerprint.enrolled_at), "MMM d, yyyy h:mm a") : "N/A" },
               { label: "Last used", value: fpEnrolled ? lastFpUsed : "N/A" },
               { label: "Avg match score", value: fpEnrolled ? "98.9%" : "N/A" },
             ].map((row) => (

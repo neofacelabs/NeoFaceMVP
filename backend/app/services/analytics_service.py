@@ -1,14 +1,13 @@
 """
-NeoFace AaaS — Analytics Service
-Aggregates usage data for customer-facing and admin analytics endpoints.
+NeoFace AaaS — Analytics Service using Firebase Firestore.
 """
 
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from google.cloud.firestore import AsyncClient
 
 from app.repositories.usage_repository import UsageRepository
 from app.repositories.session_repository import SessionRepository
@@ -17,7 +16,7 @@ from app.schemas.aaas import AnalyticsOverview
 
 
 class AnalyticsService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncClient) -> None:
         self.usage_repo = UsageRepository(db)
         self.session_repo = SessionRepository(db)
         self.identity_repo = IdentityRepository(db)
@@ -28,8 +27,7 @@ class AnalyticsService:
         usage = await self.usage_repo.get_overview(org_id, days=days)
         avg_latency = await self.session_repo.get_avg_latency_by_org(org_id)
 
-        # Daily active identities: count distinct identities with sessions in last 24h
-        # For now derive from sessions repo — exact DAI requires a dedicated query
+        # Daily active identities
         dai = await self._count_distinct_active_identities(org_id, days=1)
         mai = await self._count_distinct_active_identities(org_id, days=30)
 
@@ -45,65 +43,53 @@ class AnalyticsService:
         )
 
     async def _count_distinct_active_identities(
-        self, org_id: uuid.UUID, days: int
+        self, org_id: uuid.UUID | str, days: int
     ) -> int:
-        from datetime import timedelta
-        from sqlalchemy import func, select
-        from app.models.auth_session import AuthenticationSession
-
         since = datetime.now(timezone.utc) - timedelta(days=days)
-        result = await self.session_repo.db.execute(
-            select(func.count(AuthenticationSession.identity_id.distinct())).where(
-                AuthenticationSession.organization_id == org_id,
-                AuthenticationSession.identity_id.isnot(None),
-                AuthenticationSession.created_at >= since,
-            )
-        )
-        return result.scalar_one() or 0
+        col = self.session_repo.db.collection("auth_sessions")
+        query = (col.where("organization_id", "==", str(org_id))
+                 .where("created_at", ">=", since))
+        docs = await query.get()
+        active_ids = set()
+        for doc in docs:
+            data = doc.to_dict()
+            ident_id = data.get("identity_id")
+            if ident_id:
+                active_ids.add(str(ident_id))
+        return len(active_ids)
 
     async def get_daily_usage(
-        self, org_id: uuid.UUID, days: int = 30, app_id: uuid.UUID | None = None
+        self, org_id: uuid.UUID | str, days: int = 30, app_id: uuid.UUID | None = None
     ) -> list[dict]:
         return await self.usage_repo.get_daily_stats(org_id, days=days, app_id=app_id)
 
     async def get_by_application(
-        self, org_id: uuid.UUID, days: int = 30
+        self, org_id: uuid.UUID | str, days: int = 30
     ) -> list[dict]:
         return await self.usage_repo.get_by_application(org_id, days=days)
 
     async def get_authentication_stats(
-        self, org_id: uuid.UUID, days: int = 30
+        self, org_id: uuid.UUID | str, days: int = 30
     ) -> dict:
         """Stats breakdown by event_type and status for the authentication panel."""
-        from datetime import timedelta
-        from sqlalchemy import func, select
-        from app.models.auth_session import AuthenticationSession
-
         since = datetime.now(timezone.utc) - timedelta(days=days)
-        result = await self.session_repo.db.execute(
-            select(
-                AuthenticationSession.event_type,
-                AuthenticationSession.status,
-                func.count(AuthenticationSession.id).label("count"),
-            )
-            .where(
-                AuthenticationSession.organization_id == org_id,
-                AuthenticationSession.created_at >= since,
-            )
-            .group_by(
-                AuthenticationSession.event_type,
-                AuthenticationSession.status,
-            )
-        )
-        rows = result.all()
+        col = self.session_repo.db.collection("auth_sessions")
+        query = (col.where("organization_id", "==", str(org_id))
+                 .where("created_at", ">=", since))
+        docs = await query.get()
+        
         breakdown: dict = {}
-        for row in rows:
-            et = row.event_type
+        for doc in docs:
+            data = doc.to_dict()
+            et = data.get("event_type")
+            status = data.get("status")
+            if not et or not status:
+                continue
             if et not in breakdown:
                 breakdown[et] = {"total": 0, "success": 0, "failure": 0}
-            breakdown[et]["total"] += row.count
-            if row.status == "success":
-                breakdown[et]["success"] += row.count
+            breakdown[et]["total"] += 1
+            if status == "success":
+                breakdown[et]["success"] += 1
             else:
-                breakdown[et]["failure"] += row.count
+                breakdown[et]["failure"] += 1
         return {"period_days": days, "by_event_type": breakdown}

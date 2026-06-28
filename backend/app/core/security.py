@@ -16,7 +16,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel, computed_field
-from sqlalchemy.ext.asyncio import AsyncSession
+from google.cloud.firestore import AsyncClient
 
 from app.core.database import get_db
 
@@ -199,7 +199,7 @@ async def get_current_user_token(
 
 async def require_admin(
     token_data: TokenData = Depends(get_current_user_token),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncClient = Depends(get_db),
 ) -> TokenData:
     """
     FastAPI dependency: require platform admin OR organization admin/owner.
@@ -211,16 +211,10 @@ async def require_admin(
 
     # 2. Organization-level admin check
     try:
-        from app.models.org_membership import OrgMembership
-        from sqlalchemy import select
-        result = await db.execute(
-            select(OrgMembership).where(
-                OrgMembership.user_id == token_data.user_uuid,
-                OrgMembership.role.in_(["admin", "owner"])
-            )
-        )
-        membership = result.scalar_one_or_none()
-        if membership:
+        col = db.collection("org_memberships")
+        query = col.where("user_id", "==", str(token_data.user_uuid)).where("role", "in", ["admin", "owner"]).limit(1)
+        docs = await query.get()
+        if docs:
             return token_data
     except Exception as exc:
         logger.error("require_admin: membership query failed", error=str(exc))
@@ -272,7 +266,7 @@ api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
 async def get_current_merchant(
     api_key: str | None = Depends(api_key_header),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncClient = Depends(get_db),
 ):
     """
     FastAPI dependency: authenticate a merchant using x-api-key header.
@@ -282,17 +276,23 @@ async def get_current_merchant(
         return None
 
     prefix = api_key[:12]
-    from app.models.merchant import Merchant
-    result = await db.execute(
-        select(Merchant).where(
-            Merchant.api_key_prefix == prefix,
-            Merchant.is_active == True  # noqa: E712
-        )
-    )
-    merchant = result.scalar_one_or_none()
-    if not merchant or not merchant.api_key_hash:
+    col = db.collection("merchants")
+    query = col.where("api_key_prefix", "==", prefix).where("is_active", "==", True).limit(1)
+    docs = await query.get()
+    if not docs:
         return None
-
+    doc = docs[0]
+    data = doc.to_dict()
+    from app.models.merchant import Merchant
+    merchant = Merchant(
+        id=UUID(doc.id),
+        business_name=data.get("business_name"),
+        business_email=data.get("business_email"),
+        api_key_prefix=data.get("api_key_prefix"),
+        api_key_hash=data.get("api_key_hash"),
+        is_active=data.get("is_active", True),
+        created_at=data.get("created_at"),
+    )
     try:
         if bcrypt.checkpw(api_key.encode("utf-8"), merchant.api_key_hash.encode("utf-8")):
             return merchant

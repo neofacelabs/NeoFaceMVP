@@ -1,10 +1,18 @@
+"""
+NeoFace AaaS — Role-Based Access Control (RBAC) middleware using Firebase Firestore.
+"""
+
+from __future__ import annotations
+
+import uuid
 from fastapi import Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from google.cloud.firestore import AsyncClient
 
 from app.core.database import get_db
 from app.core.security import TokenData, get_current_user_token
 from app.models.user import User
+from app.repositories.user_repository import UserRepository
+
 
 def require_permissions(required_perms: list[str]):
     """
@@ -13,12 +21,10 @@ def require_permissions(required_perms: list[str]):
     """
     async def dependency(
         token_data: TokenData = Depends(get_current_user_token),
-        db: AsyncSession = Depends(get_db),
+        db: AsyncClient = Depends(get_db),
     ) -> User:
-        from uuid import UUID
-        user_uuid = UUID(token_data.user_id)
-        result = await db.execute(select(User).where(User.id == user_uuid))
-        user = result.scalar_one_or_none()
+        user_uuid = uuid.UUID(token_data.user_id)
+        user = await UserRepository(db).get_by_id(user_uuid)
         
         if not user or not user.is_active:
             raise HTTPException(

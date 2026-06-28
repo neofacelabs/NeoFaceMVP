@@ -72,10 +72,8 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy application code and migration files
+# Copy application code
 COPY --chown=neoface:neoface ./app ./app
-COPY --chown=neoface:neoface ./migrations ./migrations
-COPY --chown=neoface:neoface ./alembic.ini ./alembic.ini
 COPY --chown=neoface:neoface .env.example .env.example
 
 # Startup entrypoint script (runs migrations then starts server)
@@ -86,9 +84,8 @@ RUN chmod +x ./docker-entrypoint.sh
 RUN mkdir -p /app/storage/faces /app/logs /app/.insightface /app/models \
     && chown -R neoface:neoface /app/storage /app/logs /app/.insightface /app/models
 
-# Copy scripts and pre-download ONNX models during build
+# Copy scripts
 COPY --chown=neoface:neoface ./scripts ./scripts
-RUN python scripts/download_models.py --all && chown -R neoface:neoface /app/models /app/.insightface
 
 # InsightFace model cache directory
 ENV INSIGHTFACE_HOME=/app/.insightface

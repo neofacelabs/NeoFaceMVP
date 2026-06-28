@@ -163,7 +163,7 @@ try {
     # ─────────────────────────────────────────────────────────────────────────
     # STEP 4: START BACKEND DOCKER STACK
     # ─────────────────────────────────────────────────────────────────────────
-    Write-Step "📦 4. Starting backend (Postgres, Redis, API, Celery)..."
+    Write-Step "📦 4. Starting backend (Redis, API, Celery)..."
     if ($NeedsBuild) {
         Write-Host "   Building Docker image (this may take a few minutes)..."
         $env:DOCKER_BUILDKIT = "1"

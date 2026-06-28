@@ -5,20 +5,16 @@ Verifies that enrolling iris and fingerprint records stores the raw uploaded ima
 
 from unittest.mock import MagicMock, patch
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.models.fingerprint_template import FingerprintTemplate
-from app.models.iris_embedding import IrisEmbedding
-from app.tests.conftest import make_user_token, make_test_image_bytes
+from app.tests.conftest import make_user_token, make_test_image_bytes, MockFirestoreClient
+from app.repositories.biometric_repositories import IrisRepository, FingerprintRepository
 
 
 @pytest.mark.asyncio
 async def test_iris_enrollment_stores_source_image_bytes(
     async_client: AsyncClient,
-    db_session: AsyncSession,
+    db_session: MockFirestoreClient,
     test_user,
 ):
     """Test that iris enrollment successfully persists the source image bytes."""
@@ -52,10 +48,7 @@ async def test_iris_enrollment_stores_source_image_bytes(
         assert res_data["enrolled"] is True
         
         # Query database directly to confirm source_image_bytes is saved
-        result = await db_session.execute(
-            select(IrisEmbedding).where(IrisEmbedding.user_id == test_user.id)
-        )
-        records = list(result.scalars().all())
+        records = await IrisRepository(db_session).get_by_user(test_user.id)
         assert len(records) == 1
         assert records[0].source_image_bytes == image_bytes
 
@@ -63,7 +56,7 @@ async def test_iris_enrollment_stores_source_image_bytes(
 @pytest.mark.asyncio
 async def test_fingerprint_enrollment_stores_source_image_bytes(
     async_client: AsyncClient,
-    db_session: AsyncSession,
+    db_session: MockFirestoreClient,
     test_user,
 ):
     """Test that fingerprint enrollment successfully persists the source image bytes."""
@@ -96,9 +89,6 @@ async def test_fingerprint_enrollment_stores_source_image_bytes(
         assert res_data["enrolled"] is True
         
         # Query database directly to confirm source_image_bytes is saved
-        result = await db_session.execute(
-            select(FingerprintTemplate).where(FingerprintTemplate.user_id == test_user.id)
-        )
-        records = list(result.scalars().all())
+        records = await FingerprintRepository(db_session).get_by_user(test_user.id)
         assert len(records) == 1
         assert records[0].source_image_bytes == image_bytes

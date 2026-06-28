@@ -13,7 +13,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from google.cloud.firestore import AsyncClient
 
 from app.core.config import settings
 from app.core.logging import EnrollmentLogger, logger
@@ -42,7 +42,7 @@ class EnrollmentService:
 
     def __init__(
         self,
-        db: AsyncSession,
+        db: AsyncClient,
         detector: FaceDetectorService,
         embedder: FaceEmbeddingService,
         storage: StorageService,
@@ -201,25 +201,18 @@ class EnrollmentService:
 
         # Update matching Identity records in multitenant AaaS to "enrolled" and link face_embedding_id
         try:
-            from app.models.identity import Identity
-            from sqlalchemy import update, or_
             latest_embs = await self.embedding_repo.get_by_user(user.id)
             if latest_embs:
                 emb_id = latest_embs[0].id
-                stmt = (
-                    update(Identity)
-                    .where(
-                        or_(
-                            Identity.external_user_id == request.email,
-                            Identity.external_user_id.like(f'%"{request.email}"%')
-                        )
-                    )
-                    .values(
-                        enrollment_status="enrolled",
-                        face_embedding_id=emb_id
-                    )
-                )
-                await self.db.execute(stmt)
+                col = self.db.collection("identities")
+                query = col.where("external_user_id", "==", request.email)
+                docs = await query.get()
+                for doc in docs:
+                    await doc.reference.update({
+                        "enrollment_status": "enrolled",
+                        "face_embedding_id": str(emb_id),
+                        "updated_at": datetime.now(timezone.utc)
+                    })
                 logger.info("Updated matching AaaS Identity status to enrolled", email=request.email, face_embedding_id=str(emb_id))
         except Exception as exc:
             logger.warning("Failed to update AaaS Identity status during enrollment", email=request.email, error=str(exc))

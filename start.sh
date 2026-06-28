@@ -162,7 +162,7 @@ info "Stale containers cleared."
 # ─────────────────────────────────────────────────────────────────────────────
 # STEP 4: START BACKEND DOCKER STACK
 # ─────────────────────────────────────────────────────────────────────────────
-step "📦 4. Starting backend (Postgres, Redis, API, Celery)..."
+step "📦 4. Starting backend (Redis, API, Celery)..."
 
 if [ "$NEEDS_BUILD" = true ]; then
     echo "   Building Docker image (only happens when Dockerfile/requirements changed)..."

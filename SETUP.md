@@ -50,7 +50,20 @@ JWT_SECRET=<paste-output-here>
 ADMIN_PASSWORD=<your-secure-password>
 ```
 
-For local development with Docker Compose, the **database and Redis settings are pre-configured** — you don't need to change them unless you're using Supabase or a remote DB.
+Configure your **Firebase Firestore** and **Cloudflare R2** settings:
+
+```bash
+# Firebase Firestore credentials:
+FIREBASE_CREDENTIALS_JSON='{"type": "service_account", ...}'
+
+# Cloudflare R2 Credentials:
+STORAGE_BACKEND=s3
+AWS_ACCESS_KEY_ID=<your-r2-access-key-id>
+AWS_SECRET_ACCESS_KEY=<your-r2-secret-access-key>
+AWS_S3_ENDPOINT_URL=https://<your-account-id>.r2.cloudflarestorage.com
+AWS_S3_BUCKET=<your-r2-bucket-name>
+AWS_S3_REGION=auto
+```
 
 ---
 
@@ -71,11 +84,47 @@ Check status:
 python3 backend/scripts/download_models.py --status
 ```
 
-> **Note:** All services have heuristic fallbacks. You can start the app even if models are missing — they just won't use the AI-enhanced versions.
+---
+
+## Step 4 — Configure Cloud Storage Rules & Indexes
+
+### Firebase Firestore Setup
+
+1. **Deploy Rules**: Execute the firebase command to deploy the security configuration (`firestore.rules`):
+   ```bash
+   firebase deploy --only firestore:rules
+   ```
+   Or copy the contents of `firestore.rules` directly into the Rules tab in your Firebase Console.
+
+2. **Deploy Composite Indexes**:
+   ```bash
+   firebase deploy --only firestore:indexes
+   ```
+   Or create the composite indexes listed in `firestore.indexes.json` manually in the Indexes tab in your Firebase Console.
+
+### Cloudflare R2 CORS Policy Configuration
+
+To ensure the Trust Terminal and frontend can correctly send face, fingerprint, and iris biometric media to the private R2 storage bucket, you must enable a CORS policy on the bucket settings:
+
+1. Log into your **Cloudflare Dashboard** and navigate to **R2 -> Buckets -> Settings**.
+2. Click **CORS Policy** under the Bucket settings.
+3. Paste the following configuration:
+   ```json
+   [
+     {
+       "AllowedOrigins": ["*"],
+       "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+       "AllowedHeaders": ["*"],
+       "ExposeHeaders": [],
+       "MaxAgeSeconds": 3000
+     }
+   ]
+   ```
+4. Save the changes.
 
 ---
 
-## Step 4 — Start the Stack
+## Step 5 — Start the Stack
 
 ```bash
 # One command starts everything:
@@ -87,26 +136,8 @@ make start
 
 This will:
 1. Build the Docker image (first run: ~3–5 min)
-2. Start PostgreSQL, Redis, API, Celery worker, Celery beat, Flower
+2. Start Redis, API, Celery worker, Celery beat, Flower
 3. Start the Next.js frontend dev server
-
-**First run takes ~2–3 minutes** to build Docker and download InsightFace models.  
-Subsequent runs start in **<30 seconds**.
-
----
-
-## Step 5 — Run Database Migrations
-
-In a **new terminal** (while the stack is running):
-
-```bash
-make migrate
-
-# OR manually:
-docker compose exec api alembic upgrade head
-```
-
-This creates all database tables. Only needed on first run or after migrations are added.
 
 ---
 
@@ -119,8 +150,6 @@ This creates all database tables. Only needed on first run or after migrations a
 | **Health Check** | http://localhost:8000/health | `{"status": "healthy"}` |
 | **Celery Flower** | http://localhost:5555 | Task monitoring UI |
 
-Flower credentials: `admin` / `neoface_flower_pass`
-
 ---
 
 ## Step 7 — Create Your First Account
@@ -131,12 +160,6 @@ Flower credentials: `admin` / `neoface_flower_pass`
 4. Allow webcam access and enroll your face
 5. Go to http://localhost:3000/verify to test face verification
 
-**Default admin account:**
-```
-Email:    admin@neoface.io
-Password: (whatever you set in backend/.env)
-```
-
 ---
 
 ## 🪟 Windows Local Setup Guide
@@ -144,8 +167,6 @@ Password: (whatever you set in backend/.env)
 If you are on Windows, you have two options to run the NeoFace stack: **Option A: Native Windows (using PowerShell)** or **Option B: WSL2 (Windows Subsystem for Linux - Highly Recommended)**.
 
 ### Option A — Native Windows Setup (PowerShell)
-
-Use this option to run everything natively on Windows without setting up a virtualized Linux subsystem.
 
 #### 1. Prerequisites
 Install the following Windows installers:
@@ -157,16 +178,12 @@ Install the following Windows installers:
 #### 2. Configure Environment
 Open PowerShell in the root of the project directory and run:
 ```powershell
-# Copy environment templates
 Copy-Item backend/.env.example backend/.env
 Copy-Item frontend/.env.example frontend/.env.local
 ```
-Now edit `backend/.env` and configure:
-* `JWT_SECRET` (generate with: `python -c "import secrets; print(secrets.token_hex(32))"`)
-* `ADMIN_PASSWORD` (set a secure admin password)
+Edit your environment values in `backend/.env` with your Firestore and Cloudflare R2 keys.
 
 #### 3. Download ONNX Models
-In PowerShell, run:
 ```powershell
 cd backend
 python scripts/download_models.py --all
@@ -174,72 +191,36 @@ cd ..
 ```
 
 #### 4. Start the NeoFace Stack
-Windows disables script execution by default for security. Run the custom PowerShell script with a temporary execution policy bypass:
 ```powershell
 PowerShell -ExecutionPolicy Bypass -File .\start.ps1
-```
-This script will:
-1. Verify and copy your `.env` files.
-2. Check if the backend Docker image needs a rebuild.
-3. Start the Postgres database, Redis cache, Celery worker, and FastAPI server inside Docker.
-4. Detect if frontend dependencies need installation (runs `npm install`).
-5. Launch the Next.js frontend dev server.
-6. Gracefully shut down all Docker containers and background processes when you press `Ctrl+C`.
-
-#### 5. Run Database Migrations
-While the stack is running, open a **new PowerShell window** and run:
-```powershell
-docker compose exec api alembic upgrade head
 ```
 
 ---
 
 ### Option B — WSL2 Setup (Highly Recommended)
 
-WSL2 provides a native Ubuntu Linux command-line environment inside Windows, providing 100% production parity and enabling the use of `Makefile` commands (`make setup`, `make start`, etc.).
-
 #### 1. Enable WSL2 & Install Ubuntu
-Open PowerShell as Administrator and run:
 ```powershell
 wsl --install
 ```
-If prompted, reboot your computer. Once finished, set up your Ubuntu username and password.
 
 #### 2. Configure Docker Desktop Integration
 1. Open **Docker Desktop** on Windows.
-2. Go to **Settings** (gear icon) → **General** → Ensure **"Use the WSL 2 based engine"** is checked.
-3. Go to **Resources** → **WSL Integration**.
-4. Toggle **"Enable integration with my default WSL distro"** (e.g., `Ubuntu`) to **ON**.
-5. Click **Apply & Restart**.
+2. Go to **Settings** → **General** → Ensure **"Use the WSL 2 based engine"** is checked.
+3. Go to **Resources** → **WSL Integration** → Toggle your default distro to **ON**.
 
 #### 3. Install Development Tools in WSL Ubuntu
-Open your Ubuntu terminal and run the following command to install dependencies:
 ```bash
 sudo apt update && sudo apt install -y make python3 python3-pip python3-venv nodejs npm git
 ```
-> ⚠️ **Note:** The default nodejs package in some Ubuntu repositories may be outdated. If so, update it to Node 18+ using [NodeSource Node.js Binary Distributions](https://github.com/nodesource/distributions) or [nvm](https://github.com/nvm-sh/nvm).
 
 #### 4. Clone, Configure, and Start
-Within the WSL Ubuntu terminal, run:
 ```bash
-# Clone
 git clone https://github.com/DivyeBhatnagar/NeoFace.git
 cd NeoFace
-
-# Setup environment files and install frontend dependencies
 make setup
-
-# Download models
 make models
-
-# Start the stack
 make start
-```
-
-#### 5. Run Migrations (WSL2)
-In a **second WSL2 terminal window**, navigate to the project directory and run:
-```bash
-make migrate
 ```
 
 ---
@@ -248,79 +229,12 @@ make migrate
 
 * **Script execution is blocked:** Ensure you run PowerShell using `-ExecutionPolicy Bypass` as shown:
   `PowerShell -ExecutionPolicy Bypass -File .\start.ps1`
-* **Docker Memory Limit (OOM):** The AI models require significant RAM. By default, WSL2 might consume too much RAM or limit Docker memory.
-  If containers crash during startup or show OOM errors, create a `.wslconfig` file in your Windows user profile folder (`C:\Users\<YourUsername>\.wslconfig`) and configure:
+* **Docker Memory Limit (OOM):** Create a `.wslconfig` file in your Windows user profile folder (`C:\Users\<YourUsername>\.wslconfig`) and configure:
   ```ini
   [wsl2]
   memory=8GB   # Give WSL2 at least 8 GB of RAM
   ```
   Then restart WSL in PowerShell: `wsl --shutdown`.
-* **Line Endings Warning:** If git checks out files with CRLF (Windows carriage returns), Docker scripts might fail to execute. If you see errors like `/bin/bash^M: bad interpreter`, run this in git:
+* **Line Endings Warning:** If git checks out files with CRLF, run this in git:
   `git config --global autocrlf input`
   Then re-clone the repository.
-
----
-
-## Common Commands
-
-```bash
-make help           # See all available commands
-make status         # Check model download status
-make models         # Download models (skip existing)
-make logs           # Tail API logs
-make migrate        # Run DB migrations
-make test           # Run backend tests
-make shell-api      # Shell into the API container
-make shell-db       # psql into the database
-make stop           # Stop all services (preserves data)
-make clean          # Remove dangling Docker resources
-```
-
----
-
-## Troubleshooting
-
-### API won't start / crashes immediately
-- **Check logs:** `make logs` or `docker compose logs api`
-- **Common cause:** Missing `.env` file → `cp backend/.env.example backend/.env`
-- **Common cause:** Models missing in strict mode → Set `STRICT_MODEL_VERIFICATION=false` in `backend/.env`
-
-### Database connection error
-- **Check postgres is running:** `docker compose ps postgres`
-- **Check migrations:** `make migrate`
-- Ensure `DATABASE_URL` in `backend/.env` points to `localhost:5432` (not Supabase) for local dev
-
-### Models show as missing
-- Run: `python3 backend/scripts/download_models.py --all`
-- Some models may fail to download if HuggingFace URLs change — check `backend/models/README.md` for updated URLs
-
-### Frontend shows "Network Error" / can't reach API
-- Confirm API is running: http://localhost:8000/health
-- Check `frontend/.env.local` has `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`
-- Check CORS: ensure `ALLOWED_ORIGINS` in `backend/.env` includes `http://localhost:3000`
-
-### Port conflicts
-- Frontend uses **3000**, API uses **8000**, Redis uses **6379**, Postgres uses **5432**, Flower uses **5555**
-- If ports are busy: `lsof -i :3000` to find what's using them, or change ports in `docker-compose.yml`
-
-### Fresh start (wipe everything)
-```bash
-make nuke      # Destroys all containers and volumes (wipes local DB)
-make setup     # Re-run setup
-make start
-make migrate
-```
-
----
-
-## Production Deployment
-
-For production, see the [Deployment section in README.md](./README.md#-deployment).
-
-Key differences from local dev:
-- Set `ENVIRONMENT=production` in backend env
-- Set `STRICT_MODEL_VERIFICATION=true`  
-- Set a strong `JWT_SECRET` (min 64 chars)
-- Use Supabase or managed Postgres (not the compose postgres)
-- Deploy backend to Railway / Render / AWS ECS
-- Deploy frontend to Vercel (`cd frontend && vercel deploy`)

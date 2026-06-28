@@ -1,16 +1,15 @@
 """
-NeoFace Dashboard API
-Provides analytics and monitoring endpoints for the admin dashboard
-and tenant-scoped metrics for customer dashboards.
+NeoFace Dashboard API using Firebase Firestore.
 """
+
+from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlalchemy import select, func, case
-from sqlalchemy.ext.asyncio import AsyncSession
+from google.cloud.firestore import AsyncClient
 
 from app.core.database import check_db_health, get_db
 from app.core.security import get_current_user_token, TokenData, require_admin
@@ -25,7 +24,7 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 async def get_dashboard_context(
     token: TokenData = Depends(get_current_user_token),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncClient = Depends(get_db),
 ) -> dict:
     """
     Dependency that resolves whether the dashboard caller is admin
@@ -57,7 +56,7 @@ async def get_dashboard_context(
 )
 async def get_user_stats(
     ctx: dict = Depends(get_dashboard_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncClient = Depends(get_db),
 ) -> dict:
     """
     Returns:
@@ -75,16 +74,14 @@ async def get_user_stats(
         enrolled = await user_repo.count_enrolled()
         active = await user_repo.count_active()
         
-        from app.models.organization import Organization
-        from app.models.application import Application
-        orgs_count = (await db.execute(select(func.count(Organization.id)))).scalar_one()
-        apps_count = (await db.execute(select(func.count(Application.id)))).scalar_one()
+        orgs_count = len(await db.collection("organizations").get())
+        apps_count = len(await db.collection("applications").get())
     else:
-        from app.models.identity import Identity
         org_id = ctx["org_id"]
-        total = (await db.execute(select(func.count(Identity.id)).where(Identity.organization_id == org_id))).scalar_one()
-        enrolled = (await db.execute(select(func.count(Identity.id)).where(Identity.organization_id == org_id, Identity.enrollment_status == "enrolled"))).scalar_one()
-        active = (await db.execute(select(func.count(Identity.id)).where(Identity.organization_id == org_id, Identity.enrollment_status.in_(["pending", "enrolled"])))).scalar_one()
+        col = db.collection("identities")
+        total = len(await col.where("organization_id", "==", str(org_id)).get())
+        enrolled = len(await col.where("organization_id", "==", str(org_id)).where("status", "==", "enrolled").get())
+        active = len(await col.where("organization_id", "==", str(org_id)).where("status", "in", ["pending", "enrolled"]).get())
 
     result = {
         "total_users": total,
@@ -105,25 +102,18 @@ async def get_user_stats(
 )
 async def get_verification_stats(
     ctx: dict = Depends(get_dashboard_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncClient = Depends(get_db),
 ) -> dict:
-    """
-    Returns:
-    - total_verifications
-    - successful_verifications
-    - failed_verifications
-    - success_rate (%)
-    """
     is_admin = ctx["is_admin"]
     if is_admin:
         log_repo = AuthLogRepository(db)
         total = await log_repo.count_total()
         successful = await log_repo.count_successful()
     else:
-        from app.models.auth_session import AuthenticationSession
         org_id = ctx["org_id"]
-        total = (await db.execute(select(func.count(AuthenticationSession.id)).where(AuthenticationSession.organization_id == org_id))).scalar_one()
-        successful = (await db.execute(select(func.count(AuthenticationSession.id)).where(AuthenticationSession.organization_id == org_id, AuthenticationSession.status == "success"))).scalar_one()
+        col = db.collection("auth_sessions")
+        total = len(await col.where("organization_id", "==", str(org_id)).get())
+        successful = len(await col.where("organization_id", "==", str(org_id)).where("status", "==", "success").get())
 
     return {
         "total_verifications": total,
@@ -140,9 +130,8 @@ async def get_verification_stats(
 )
 async def get_success_rate(
     ctx: dict = Depends(get_dashboard_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncClient = Depends(get_db),
 ) -> dict:
-    """Returns the overall authentication success percentage."""
     is_admin = ctx["is_admin"]
     if is_admin:
         log_repo = AuthLogRepository(db)
@@ -167,12 +156,8 @@ async def get_recent_logs(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     ctx: dict = Depends(get_dashboard_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncClient = Depends(get_db),
 ) -> AuthLogListResponse:
-    """
-    Paginated list of recent authentication events.
-    Sorted newest-first.
-    """
     is_admin = ctx["is_admin"]
     if is_admin:
         log_repo = AuthLogRepository(db)
@@ -210,12 +195,8 @@ async def get_recent_logs(
 async def get_analytics(
     days: int = Query(default=7, ge=1, le=90, description="Number of days to include"),
     ctx: dict = Depends(get_dashboard_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncClient = Depends(get_db),
 ) -> dict:
-    """
-    Returns daily verification counts for the last N days.
-    Used to render the dashboard analytics chart.
-    """
     is_admin = ctx["is_admin"]
     if is_admin:
         log_repo = AuthLogRepository(db)
@@ -239,110 +220,85 @@ async def get_analytics(
     }
 
 
-# ── Payment/Biometric Analytics ───────────────────────────────────────────────
-
 @router.get(
     "/payments/overview",
     summary="Payment transaction overview",
 )
 async def get_payment_overview(
     ctx: dict = Depends(get_dashboard_context),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncClient = Depends(get_db),
 ) -> dict:
-    """
-    Real financial or session metrics:
-    - total_transactions
-    - authorized_transactions
-    - failed_transactions
-    - total_volume (USD)
-    - authorization_rate (%)
-    - modality_breakdown (per-biometric mode counts)
-    """
     is_admin = ctx["is_admin"]
-    from app.models.auth_session import AuthenticationSession
     if is_admin:
-        total = (await db.execute(select(func.count(AuthenticationSession.id)))).scalar_one()
-        authorized = (await db.execute(select(func.count(AuthenticationSession.id)).where(AuthenticationSession.status == "success"))).scalar_one()
+        docs = await db.collection("auth_sessions").get()
+        total = len(docs)
+        authorized = sum(1 for doc in docs if doc.to_dict().get("status") == "success")
         volume = 0.0
         auth_rate = round((authorized / total * 100) if total > 0 else 100.0, 2)
         
-        # Breakdown by event_type
-        result = await db.execute(
-            select(AuthenticationSession.event_type, func.count(AuthenticationSession.id))
-            .group_by(AuthenticationSession.event_type)
-        )
-        modality_breakdown = {row[0]: row[1] for row in result.fetchall()}
+        modality_breakdown = {}
+        for doc in docs:
+            et = doc.to_dict().get("event_type")
+            modality_breakdown[et] = modality_breakdown.get(et, 0) + 1
+            
+        latencies = [doc.to_dict().get("latency_ms") for doc in docs if doc.to_dict().get("latency_ms") is not None]
+        avg_latency = round(sum(latencies) / len(latencies), 2) if latencies else 0.0
         
-        avg_latency = (await db.execute(select(func.avg(AuthenticationSession.latency_ms)))).scalar_one_or_none()
-        avg_latency = round(float(avg_latency), 2) if avg_latency else 0.0
-        
-        from datetime import timedelta
         since_24h = datetime.now(timezone.utc) - timedelta(hours=24)
-        threats = (await db.execute(
-            select(func.count(AuthenticationSession.id))
-            .where(
-                AuthenticationSession.status == "failure",
-                AuthenticationSession.created_at >= since_24h
-            )
-        )).scalar_one()
+        threats = 0
+        for doc in docs:
+            data = doc.to_dict()
+            if data.get("status") == "failure":
+                created_at = data.get("created_at")
+                if isinstance(created_at, str):
+                    created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                if created_at and created_at >= since_24h:
+                    threats += 1
     else:
         session_repo = SessionRepository(db)
         org_id = ctx["org_id"]
         total = await session_repo.count_by_org(org_id)
-        from app.models.auth_session import AuthenticationSession
-        successful = (await db.execute(select(func.count(AuthenticationSession.id)).where(
-            AuthenticationSession.organization_id == org_id,
-            AuthenticationSession.status == "success"
-        ))).scalar_one()
+        
+        docs = await db.collection("auth_sessions").where("organization_id", "==", str(org_id)).get()
+        successful = sum(1 for doc in docs if doc.to_dict().get("status") == "success")
         auth_rate = await session_repo.get_success_rate_by_org(org_id)
         
-        # Breakdown by event_type
         modalities = {}
         for et in ["enrollment", "verification", "liveness", "authentication"]:
-            c = (await db.execute(select(func.count(AuthenticationSession.id)).where(
-                AuthenticationSession.organization_id == org_id,
-                AuthenticationSession.event_type == et
-            ))).scalar_one()
-            modalities[et] = c
+            modalities[et] = sum(1 for doc in docs if doc.to_dict().get("event_type") == et)
+            
         authorized = successful
         volume = 0.0
         modality_breakdown = modalities
         
         avg_latency = await session_repo.get_avg_latency_by_org(org_id)
         
-        from datetime import timedelta
         since_24h = datetime.now(timezone.utc) - timedelta(hours=24)
-        threats = (await db.execute(
-            select(func.count(AuthenticationSession.id))
-            .where(
-                AuthenticationSession.organization_id == org_id,
-                AuthenticationSession.status == "failure",
-                AuthenticationSession.created_at >= since_24h
-            )
-        )).scalar_one()
+        threats = 0
+        for doc in docs:
+            data = doc.to_dict()
+            if data.get("status") == "failure":
+                created_at = data.get("created_at")
+                if isinstance(created_at, str):
+                    created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                if created_at and created_at >= since_24h:
+                    threats += 1
 
     # Calculate service SLA dynamically
-    from app.models.auth_session import AuthenticationSession
-    from sqlalchemy import case
-    
-    sla_stmt = select(
-        AuthenticationSession.event_type,
-        func.count(AuthenticationSession.id).label("total"),
-        func.count(case((AuthenticationSession.status == "success", 1))).label("success"),
-        func.avg(AuthenticationSession.latency_ms).label("avg_latency")
-    )
-    if not is_admin:
-        sla_stmt = sla_stmt.where(AuthenticationSession.organization_id == ctx["org_id"])
-    sla_stmt = sla_stmt.group_by(AuthenticationSession.event_type)
-    
-    sla_rows = (await db.execute(sla_stmt)).all()
-    
     sla_data = {}
-    for row in sla_rows:
-        et = row.event_type
-        total_cnt = row.total
-        success_cnt = row.success
-        avg_lat = round(float(row.avg_latency), 2) if row.avg_latency is not None else 0.0
+    grouped = {}
+    for doc in (docs if not is_admin else await db.collection("auth_sessions").get()):
+        data = doc.to_dict()
+        et = data.get("event_type")
+        if et not in grouped:
+            grouped[et] = []
+        grouped[et].append(data)
+    
+    for et, logs in grouped.items():
+        total_cnt = len(logs)
+        success_cnt = sum(1 for l in logs if l.get("status") == "success")
+        latencies = [l.get("latency_ms") for l in logs if l.get("latency_ms") is not None]
+        avg_lat = round(sum(latencies) / len(latencies), 2) if latencies else 0.0
         success_rate = round((success_cnt / total_cnt * 100) if total_cnt > 0 else 100.0, 2)
         
         status_val = "operational"
@@ -351,7 +307,6 @@ async def get_payment_overview(
                 status_val = "outage"
             elif success_rate < 95.0:
                 status_val = "degraded"
-                
         sla_data[et] = {
             "avg_latency": f"{int(avg_lat)}ms" if avg_lat > 0 else "N/A",
             "success_rate": f"{success_rate}%",
@@ -369,9 +324,10 @@ async def get_payment_overview(
             defaults[et] = val
 
     # Calculate overall platform SLA (average success rate across all sessions)
-    session_total = (await db.execute(select(func.count(AuthenticationSession.id)))).scalar_one()
+    all_sessions = await db.collection("auth_sessions").get()
+    session_total = len(all_sessions)
     if session_total > 0:
-        session_success = (await db.execute(select(func.count(AuthenticationSession.id)).where(AuthenticationSession.status == "success"))).scalar_one()
+        session_success = sum(1 for doc in all_sessions if doc.to_dict().get("status") == "success")
         platform_sla = round((session_success / session_total) * 100, 2)
     else:
         platform_sla = 100.0
@@ -402,32 +358,24 @@ async def get_payment_daily_stats(
 ) -> dict:
     is_admin = ctx["is_admin"]
     since = datetime.now(timezone.utc).date() - timedelta(days=days)
-    from app.models.auth_session import AuthenticationSession
-    from sqlalchemy import cast, Date
     
-    stmt = select(
-        cast(AuthenticationSession.created_at, Date).label("date"),
-        AuthenticationSession.event_type,
-        AuthenticationSession.status,
-        func.count(AuthenticationSession.id).label("count")
-    ).where(
-        AuthenticationSession.created_at >= datetime.combine(since, datetime.min.time(), tzinfo=timezone.utc)
-    )
+    docs = await db.collection("auth_sessions").get()
     
-    if not is_admin:
-        stmt = stmt.where(AuthenticationSession.organization_id == ctx["org_id"])
-        
-    stmt = stmt.group_by(
-        cast(AuthenticationSession.created_at, Date),
-        AuthenticationSession.event_type,
-        AuthenticationSession.status
-    ).order_by(
-        cast(AuthenticationSession.created_at, Date).asc()
-    )
-    
-    result = await db.execute(stmt)
-    rows = result.all()
-    
+    rows = []
+    for doc in docs:
+        data = doc.to_dict()
+        if not is_admin and data.get("organization_id") != str(ctx["org_id"]):
+            continue
+        created_at = data.get("created_at")
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        if created_at and created_at.date() >= since:
+            rows.append({
+                "date": created_at.date(),
+                "event_type": data.get("event_type"),
+                "status": data.get("status"),
+            })
+            
     daily_dict = {}
     for i in range(days + 1):
         d_str = str(since + timedelta(days=i))
@@ -444,7 +392,7 @@ async def get_payment_daily_stats(
         }
         
     for row in rows:
-        d_str = str(row.date)
+        d_str = str(row["date"])
         if d_str not in daily_dict:
             daily_dict[d_str] = {
                 "date": d_str,
@@ -458,21 +406,21 @@ async def get_payment_daily_stats(
                 "error_count": 0,
             }
         
-        daily_dict[d_str]["total_count"] += row.count
-        if row.status == "success":
-            daily_dict[d_str]["successful_count"] += row.count
+        daily_dict[d_str]["total_count"] += 1
+        if row["status"] == "success":
+            daily_dict[d_str]["successful_count"] += 1
         else:
-            daily_dict[d_str]["error_count"] += row.count
+            daily_dict[d_str]["error_count"] += 1
             
-        et = row.event_type
+        et = row["event_type"]
         if et == "enrollment":
-            daily_dict[d_str]["enrollment_count"] += row.count
+            daily_dict[d_str]["enrollment_count"] += 1
         elif et == "verification":
-            daily_dict[d_str]["verification_count"] += row.count
+            daily_dict[d_str]["verification_count"] += 1
         elif et == "liveness":
-            daily_dict[d_str]["liveness_count"] += row.count
+            daily_dict[d_str]["liveness_count"] += 1
         elif et in ("authentication", "session"):
-            daily_dict[d_str]["session_count"] += row.count
+            daily_dict[d_str]["session_count"] += 1
             
     daily = sorted(list(daily_dict.values()), key=lambda x: x["date"])
 
@@ -494,44 +442,29 @@ async def get_recent_payments(
     ctx: dict = Depends(get_dashboard_context),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Returns the most recent payment transactions or sessions."""
     is_admin = ctx["is_admin"]
     actual_page_size = limit if limit is not None else page_size
 
+    session_repo = SessionRepository(db)
     if is_admin:
-        session_repo = SessionRepository(db)
         sessions, total = await session_repo.list_all(page=page, page_size=actual_page_size)
-        resp_txns = []
-        for s in sessions:
-            resp_txns.append({
-                "id": str(s.id),
-                "user_id": str(s.identity_id) if s.identity_id else None,
-                "amount": 0.0,
-                "currency": "USD",
-                "status": "authorized" if s.status == "success" else "failed",
-                "modality": s.event_type,
-                "device_trust_score": 100.0 - (s.risk_score or 0.0),
-                "liveness_passed": s.status == "success",
-                "authentication_result": s.status == "success",
-                "created_at": s.created_at.isoformat(),
-            })
     else:
-        session_repo = SessionRepository(db)
         sessions, total = await session_repo.list_by_org(ctx["org_id"], page=page, page_size=actual_page_size)
-        resp_txns = []
-        for s in sessions:
-            resp_txns.append({
-                "id": str(s.id),
-                "user_id": str(s.identity_id) if s.identity_id else None,
-                "amount": 0.0,
-                "currency": "USD",
-                "status": "authorized" if s.status == "success" else "failed",
-                "modality": s.event_type,
-                "device_trust_score": 100.0 - (s.risk_score or 0.0),
-                "liveness_passed": s.status == "success",
-                "authentication_result": s.status == "success",
-                "created_at": s.created_at.isoformat(),
-            })
+
+    resp_txns = []
+    for s in sessions:
+        resp_txns.append({
+            "id": str(s.id),
+            "user_id": str(s.identity_id) if s.identity_id else None,
+            "amount": 0.0,
+            "currency": "USD",
+            "status": "authorized" if s.status == "success" else "failed",
+            "modality": s.event_type,
+            "device_trust_score": 100.0 - (s.risk_score or 0.0),
+            "liveness_passed": s.status == "success",
+            "authentication_result": s.status == "success",
+            "created_at": s.created_at.isoformat() if isinstance(s.created_at, datetime) else s.created_at,
+        })
 
     return {
         "total": total,
@@ -571,9 +504,7 @@ async def get_organizations(
     token_data: TokenData = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Returns dynamic details for organizations in the admin dashboard."""
     from app.repositories.organization_repository import OrganizationRepository
-    from app.models.auth_session import AuthenticationSession
     
     org_repo = OrganizationRepository(db)
     orgs, total = await org_repo.list_all(page=page, page_size=page_size)
@@ -584,10 +515,7 @@ async def get_organizations(
         identities_count = await org_repo.count_identities(org.id)
         
         # Calculate usage status: let's query AuthenticationSession count for this org
-        total_sessions = (await db.execute(
-            select(func.count(AuthenticationSession.id))
-            .where(AuthenticationSession.organization_id == org.id)
-        )).scalar_one()
+        total_sessions = len(await db.collection("auth_sessions").where("organization_id", "==", str(org.id)).get())
         
         result.append({
             "id": str(org.id),
@@ -598,7 +526,7 @@ async def get_organizations(
             "apps": apps_count,
             "users": identities_count,
             "usage": f"{min(100, int(total_sessions / 100 * 100))}%" if total_sessions > 0 else "0%",
-            "created_at": org.created_at.isoformat()
+            "created_at": org.created_at.isoformat() if isinstance(org.created_at, datetime) else org.created_at
         })
         
     return {

@@ -12,14 +12,11 @@ cd /app
 # Set unconditionally here so subprocesses (alembic, python) inherit it.
 export PYTHONPATH=/app
 
-echo "[entrypoint] PYTHONPATH=${PYTHONPATH}"
-echo "[entrypoint] DATABASE_URL host: $(echo "${DATABASE_URL}" | sed 's|.*@\([^/:]*\).*|\1|' 2>/dev/null || echo 'NOT SET')"
-echo "[entrypoint] Running Alembic migrations..."
+# Database migrations are no longer needed as NeoFace is fully migrated to Firestore.
 
-# Run alembic with PYTHONPATH explicitly in environment to be safe
-PYTHONPATH=/app alembic upgrade head
-
-echo "[entrypoint] Migrations complete."
+# Ensure models are downloaded/verified on startup (runs instantly if already present)
+echo "[entrypoint] Verifying ONNX models..."
+python scripts/download_models.py --all || echo "⚠️ Model download check warning: Some models could not be verified, using fallbacks."
 
 if [ $# -gt 0 ]; then
     echo "[entrypoint] Executing custom command: $@"

@@ -1,275 +1,162 @@
 """
 NeoFace Database Configuration
-Async SQLAlchemy 2.0 engine backed by Supabase PostgreSQL (asyncpg driver).
-
-Features:
-  - asyncpg connection pool with configurable size and overflow
-  - Exponential backoff retry logic on engine creation and health checks
-  - Pool health probe (pool_pre_ping) to discard stale connections
-  - Explicit lifecycle helpers: init_db(), close_db(), check_db_health()
-  - Compatible with Alembic async migrations via database_url_sync property
+Firebase Firestore AsyncClient backend (replaces PostgreSQL/Supabase).
 """
 
 from __future__ import annotations
 
-import asyncio
-from collections.abc import AsyncGenerator
+import json
+import threading
 from typing import Any
-import uuid
 
-from sqlalchemy import MetaData, text
-from sqlalchemy.exc import OperationalError, SQLAlchemyError
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
-from sqlalchemy.orm import DeclarativeBase
+from google.cloud.firestore import AsyncClient
+from google.cloud.firestore_v1.async_aggregation import AsyncAggregationQuery
+import firebase_admin
+from firebase_admin import credentials
 
 from app.core.config import settings
 from app.core.logging import logger
 
-# ── Naming convention for Alembic auto-migrations ─────────────────────────────
-NAMING_CONVENTION: dict[str, str] = {
-    "ix": "ix_%(column_0_label)s",
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(constraint_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s",
-}
+_init_lock = threading.Lock()
+_firestore_client: AsyncClient | None = None
 
-# ── Retry configuration ────────────────────────────────────────────────────────
-_RETRY_ATTEMPTS: int = 5          # Maximum connection attempts
-_RETRY_BASE_DELAY: float = 1.0    # Base delay in seconds (doubles each attempt)
-_RETRY_MAX_DELAY: float = 30.0    # Cap on retry delay
+# Monkeypatch AsyncAggregationQuery to support backward compatibility with count().get()
+_original_get = AsyncAggregationQuery.get
+async def _patched_get(self, *args, **kwargs):
+    res = await _original_get(self, *args, **kwargs)
+    if res and isinstance(res, list) and isinstance(res[0], list):
+        return res[0]
+    return res
+AsyncAggregationQuery.get = _patched_get
 
 
-class Base(DeclarativeBase):
-    """
-    Declarative base for all ORM models.
-    All SQLAlchemy models must inherit from this class.
-    The shared metadata carries naming conventions used by Alembic.
-    """
+def _get_firestore_client() -> AsyncClient:
+    """Initialize and return the Firestore AsyncClient singleton."""
+    global _firestore_client
 
-    metadata = MetaData(naming_convention=NAMING_CONVENTION)
+    if _firestore_client is not None:
+        return _firestore_client
+
+    with _init_lock:
+        if _firestore_client is not None:
+            return _firestore_client
+
+        if not settings.FIREBASE_CREDENTIALS_JSON:
+            logger.error("database.firestore: FIREBASE_CREDENTIALS_JSON is not configured.")
+            raise ValueError("FIREBASE_CREDENTIALS_JSON environment variable is missing.")
+
+        try:
+            cred_dict = json.loads(settings.FIREBASE_CREDENTIALS_JSON)
+            if "private_key" in cred_dict:
+                cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+            
+            # Initialize firebase-admin if not already done
+            if not firebase_admin._apps:
+                cred = credentials.Certificate(cred_dict)
+                firebase_admin.initialize_app(cred)
+                logger.info("database.firestore: Firebase Admin SDK initialized successfully")
+
+            # Create the AsyncClient directly from service account credentials
+            _firestore_client = AsyncClient.from_service_account_info(cred_dict)
+            logger.info("database.firestore: Firestore AsyncClient initialized successfully")
+            return _firestore_client
+        except Exception as exc:
+            logger.error(f"database.firestore: Failed to initialize Firestore AsyncClient: {exc}")
+            raise exc
+
+
+# Mock engine for dependency injection/lifecycles compatibility
+class MockEngine:
+    def begin(self):
+        class MockConnContext:
+            async def __aenter__(self):
+                class MockConn:
+                    async def execute(self, *args, **kwargs):
+                        return None
+                    async def run_sync(self, *args, **kwargs):
+                        return None
+                return MockConn()
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+        return MockConnContext()
+    
+    async def dispose(self):
+        pass
+
+engine: Any = MockEngine()
+
+from collections import defaultdict
+
+class MockMetadata:
+    schema: Any = None
+    tables: dict = {}
+    naming_convention: dict = {}
+    _fk_memos: dict = defaultdict(list)
+    def _add_table(self, *args, **kwargs):
+        pass
+    def _remove_table(self, *args, **kwargs):
+        pass
+
+class Base:
+    metadata: Any = MockMetadata()
+    
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize a model instance to a plain dictionary (column values only)."""
-        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+        import uuid
+        res = {}
+        for k, v in self.__dict__.items():
+            if k.startswith("_") or callable(v):
+                continue
+            if isinstance(v, uuid.UUID):
+                res[k] = str(v)
+            else:
+                res[k] = v
+        return res
 
 
-# ── Engine factory ─────────────────────────────────────────────────────────────
-def _build_engine() -> AsyncEngine:
+async def get_db() -> AsyncGenerator[AsyncClient, None]:
     """
-    Construct the async SQLAlchemy engine pointed at Supabase PostgreSQL.
-
-    Pool settings explained:
-      pool_size        — number of persistent connections kept alive
-      max_overflow     — extra connections allowed above pool_size (transient)
-      pool_pre_ping    — execute 'SELECT 1' before handing out a connection
-                         to detect and discard stale/closed connections
-      pool_recycle     — forcibly recycle connections after N seconds to avoid
-                         hitting Supabase's idle connection timeout (~600 s)
-      pool_timeout     — seconds to wait for a free connection before raising
-      echo             — log all SQL statements in DEBUG mode only
+    FastAPI dependency — yields the Firestore AsyncClient.
     """
-    db_url = settings.DATABASE_URL
-
-    # asyncpg does NOT support the psycopg2-style ?sslmode= query parameter.
-    # SSL is configured via connect_args["ssl"] below instead.
-    # Strip all sslmode variants so asyncpg doesn't choke on them.
-    db_url = db_url.replace("?sslmode=require", "").replace("&sslmode=require", "")
-    db_url = db_url.replace("?sslmode=verify-full", "").replace("&sslmode=verify-full", "")
-    db_url = db_url.replace("?sslmode=disable", "").replace("&sslmode=disable", "")
-
-    # Force use of port 6543 (Transaction Mode) if pointing to Supabase Pooler on 5432.
-    # This prevents EMAXCONNSESSION (max clients reached) errors on concurrent requests.
-    if "pooler.supabase.com" in db_url and ":5432/" in db_url:
-        db_url = db_url.replace(":5432/", ":6543/")
-        logger.info("database: Detected Supabase pooler on port 5432. Rewrote URL to port 6543 (Transaction Mode) to optimize connection reuse.")
-
-    is_supabase = "supabase.co" in db_url or "supabase.com" in db_url
-
-    connect_args: dict[str, Any] = {
-        # Supabase (both direct and pooler) require SSL; asyncpg uses this natively
-        "ssl": "require" if is_supabase else "prefer",
-        # Required when using PgBouncer / Supabase Pooler in transaction mode
-        # (prepared statements are not supported across pooled connections)
-        "statement_cache_size": 0,
-        "prepared_statement_cache_size": 0,
-        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
-    }
-
-    engine = create_async_engine(
-        db_url,
-        pool_size=settings.DATABASE_POOL_SIZE,
-        max_overflow=settings.DATABASE_MAX_OVERFLOW,
-        pool_pre_ping=True,
-        pool_recycle=300,        # 5 minutes — well within Supabase's idle timeout
-        pool_timeout=30,         # Wait up to 30 s for a pool slot
-        echo=settings.DEBUG,
-        future=True,
-        connect_args=connect_args,
-    )
-    return engine
+    client = _get_firestore_client()
+    yield client
 
 
-# Module-level engine and session factory — lazily initialized on first use.
-# Lazy init prevents import-time crashes during Alembic migrations, which only
-# need Base.metadata and don't require an actual database connection.
-_engine: AsyncEngine | None = None
-_session_factory: async_sessionmaker[AsyncSession] | None = None
-
-
-def _get_engine() -> AsyncEngine:
-    """Return the singleton async engine, creating it on first call."""
-    global _engine
-    if _engine is None:
-        _engine = _build_engine()
-    return _engine
-
-
-def _get_session_factory() -> async_sessionmaker[AsyncSession]:
-    """Return the singleton session factory, creating it on first call."""
-    global _session_factory
-    if _session_factory is None:
-        _session_factory = async_sessionmaker(
-            bind=_get_engine(),
-            class_=AsyncSession,
-            expire_on_commit=False,
-            autocommit=False,
-            autoflush=False,
-        )
-    return _session_factory
-
-
-# Convenience module-level aliases — these are properties so they stay lazy
-class _LazyEngine:
-    """Descriptor that forwards attribute access to the real engine."""
-    def __getattr__(self, name: str):
-        return getattr(_get_engine(), name)
-    def begin(self):
-        return _get_engine().begin()
-    async def dispose(self):
-        return await _get_engine().dispose()
-
-
-engine: AsyncEngine = _LazyEngine()  # type: ignore[assignment]
-
-
-class AsyncSessionLocal:
-    """Callable that returns an AsyncSession from the lazy session factory."""
-    def __new__(cls, **kwargs):
-        return _get_session_factory()(**kwargs)
-
-    def __class_getitem__(cls, item):
-        return _get_session_factory()
-
-
-# ── FastAPI dependency ─────────────────────────────────────────────────────────
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """
-    FastAPI dependency — yields a transactional async database session.
-    """
-    async with _get_session_factory()() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
-
-
-# ── Lifecycle helpers ─────────────────────────────────────────────────────────
+# Lifecycle helpers to prevent main.py startup/shutdown errors
 async def init_db() -> None:
-    """
-    Create all tables on startup (development / first-run convenience).
+    """Verify Firestore connection is active."""
+    try:
 
-    In production, Alembic migrations have already created the schema, so this
-    function only ensures tables exist without dropping existing data.
-    CREATE EXTENSION requires superuser — skipped when using Supabase pooler.
-    """
-    from app.core.config import settings as _s
-    is_production = _s.ENVIRONMENT in ("production", "staging")
-
-    async with _get_engine().begin() as conn:
-        if not is_production:
-            # Only attempt extension creation in dev (requires superuser)
-            try:
-                await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'))
-                await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "pgcrypto"'))
-                await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "vector"'))
-            except Exception as e:
-                logger.warning(f"database.init_db: could not create extensions (non-fatal): {e}")
-        # checkfirst=True means it won't error if tables already exist
-        await conn.run_sync(lambda c: Base.metadata.create_all(c, checkfirst=True))
-    logger.info("database.init_db: schema verified")
+        client = _get_firestore_client()
+        # Verify connection by querying collections async generator
+        async for _ in client.collections():
+            break
+        logger.info("database: Firestore connection verified (healthy)")
+    except Exception as exc:
+        logger.error(f"database: Firestore verification failed: {exc}")
+        if settings.ENVIRONMENT in ("production", "staging"):
+            raise exc
 
 
 async def close_db() -> None:
-    """
-    Dispose the connection pool on application shutdown.
-    """
-    await _get_engine().dispose()
-    logger.info("database.close_db: connection pool disposed")
+    """Close the Firestore client session."""
+    global _firestore_client
+    if _firestore_client is not None:
+        await _firestore_client.close()
+        _firestore_client = None
+        logger.info("database: Firestore connection closed")
 
 
 async def check_db_health() -> bool:
-    """
-    Lightweight health probe — verifies database connectivity.
-    """
+    """Check Firestore health."""
     try:
-        async with _get_session_factory()() as session:
-            await session.execute(text("SELECT 1"))
+        client = _get_firestore_client()
+        # Try a quick call to check connection
+        async for _ in client.collections():
+            break
         return True
-    except SQLAlchemyError as exc:
-        logger.error("database.health_check: failed", error=str(exc))
+    except Exception:
         return False
-
-
-async def wait_for_db(
-    attempts: int = _RETRY_ATTEMPTS,
-    base_delay: float = _RETRY_BASE_DELAY,
-    max_delay: float = _RETRY_MAX_DELAY,
-) -> None:
-    """
-    Block until the database is reachable, using exponential backoff.
-
-    This is called during application startup to handle transient network
-    delays when the service comes up before the database is ready (common
-    in Docker Compose and cloud environments).
-
-    Args:
-        attempts:   Maximum number of connection attempts before raising.
-        base_delay: Initial sleep between attempts in seconds.
-        max_delay:  Maximum sleep cap between attempts in seconds.
-
-    Raises:
-        RuntimeError: If all attempts are exhausted without a successful ping.
-    """
-    delay = base_delay
-    for attempt in range(1, attempts + 1):
-        if await check_db_health():
-            logger.info(
-                "database.wait_for_db: connected",
-                attempt=attempt,
-            )
-            return
-
-        if attempt == attempts:
-            raise RuntimeError(
-                f"database.wait_for_db: could not reach database after "
-                f"{attempts} attempts. Check DATABASE_URL and Supabase status."
-            )
-
-        logger.warning(
-            "database.wait_for_db: connection failed, retrying",
-            attempt=attempt,
-            next_delay=delay,
-        )
-        await asyncio.sleep(delay)
-        # Exponential backoff with jitter cap
-        delay = min(delay * 2, max_delay)

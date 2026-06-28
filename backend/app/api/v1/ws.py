@@ -3,11 +3,9 @@ import uuid
 import random
 from datetime import datetime, timezone
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from sqlalchemy import select
 
-from app.core.database import AsyncSessionLocal
+from app.core.database import _get_firestore_client
 from app.models.identity import Identity
-from app.models.user import User
 
 router = APIRouter(prefix="/ws", tags=["WebSockets"])
 
@@ -19,23 +17,29 @@ async def ws_events_stream(websocket: WebSocket, org_id: str | None = None):
     Enrollment, Trust Terminal, and active Authentication Streams.
     """
     await websocket.accept()
-    db = AsyncSessionLocal()
+    db = _get_firestore_client()
     try:
         # Send initial success status connection
         await websocket.send_json({"type": "connection", "status": "connected", "org_id": org_id})
         
         while True:
             # Let's fetch some identities to generate live activity events
-            stmt = select(Identity)
+            col = db.collection("identities")
             if org_id:
-                try:
-                    org_uuid = uuid.UUID(org_id)
-                    stmt = stmt.where(Identity.organization_id == org_uuid)
-                except ValueError:
-                    pass
-            stmt = stmt.limit(20)
-            res = await db.execute(stmt)
-            identities = res.scalars().all()
+                query = col.where("organization_id", "==", str(org_id)).limit(20)
+            else:
+                query = col.limit(20)
+            docs = await query.get()
+            identities = []
+            for doc in docs:
+                data = doc.to_dict()
+                identities.append(Identity(
+                    id=uuid.UUID(doc.id),
+                    organization_id=uuid.UUID(data.get("organization_id")),
+                    external_user_id=data.get("external_user_id"),
+                    status=data.get("status"),
+                    created_at=data.get("created_at"),
+                ))
             
             if identities:
                 identity = random.choice(identities)
@@ -91,5 +95,3 @@ async def ws_events_stream(websocket: WebSocket, org_id: str | None = None):
         pass
     except Exception as e:
         pass
-    finally:
-        await db.close()

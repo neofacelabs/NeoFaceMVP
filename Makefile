@@ -7,7 +7,6 @@
 #   make setup      First-time setup (copy envs, install deps, download models)
 #   make start      Start all services (Docker + frontend dev server)
 #   make stop       Stop all Docker services
-#   make migrate    Run Alembic migrations inside the running API container
 #   make test       Run backend test suite
 #   make status     Show ONNX model download status
 #   make models     Download all ONNX models
@@ -16,8 +15,8 @@
 #   make nuke       Full Docker teardown + volume wipe (destructive!)
 # ─────────────────────────────────────────────────────────────────────────────
 
-.PHONY: help setup start stop migrate test status models logs clean nuke \
-        build lint type-check shell-api shell-db
+.PHONY: help setup start stop test status models logs clean nuke \
+        build lint type-check shell-api
 
 # ── Colors ─────────────────────────────────────────────────────────────────────
 BOLD  := \033[1m
@@ -38,7 +37,7 @@ help: ## Print all available make commands
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-18s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(BOLD)Quick Start:$(RESET)"
-	@echo "  make setup && make start && make migrate"
+	@echo "  make setup && make start"
 	@echo ""
 
 # ── First-time setup ───────────────────────────────────────────────────────────
@@ -72,7 +71,7 @@ setup: ## Copy .env files, install frontend deps, download models
 
 	@echo ""
 	@echo "$(BOLD)$(GREEN)Setup complete!$(RESET)"
-	@echo "  Next: $(CYAN)make start$(RESET)  →  then  $(CYAN)make migrate$(RESET)"
+	@echo "  Next: $(CYAN)make start$(RESET)"
 	@echo ""
 
 # ── Download models ────────────────────────────────────────────────────────────
@@ -95,21 +94,6 @@ stop: ## Stop all Docker services (preserves volumes)
 
 build: ## Force rebuild Docker image (use after changing Dockerfile/requirements)
 	DOCKER_BUILDKIT=1 docker compose build --no-cache api worker beat
-
-# ── Database ───────────────────────────────────────────────────────────────────
-migrate: ## Run Alembic migrations (requires running API container)
-	@echo "$(BOLD)Running database migrations...$(RESET)"
-	docker compose exec api alembic upgrade head
-	@echo "$(GREEN)  ✅ Migrations complete$(RESET)"
-
-migrate-status: ## Show current Alembic migration status
-	docker compose exec api alembic current
-
-migrate-history: ## Show full Alembic migration history
-	docker compose exec api alembic history --verbose
-
-migrate-down: ## Rollback one migration step
-	docker compose exec api alembic downgrade -1
 
 # ── Testing ────────────────────────────────────────────────────────────────────
 test: ## Run backend test suite
@@ -151,9 +135,6 @@ logs-worker: ## Tail Celery worker logs
 # ── Shell Access ───────────────────────────────────────────────────────────────
 shell-api: ## Open a shell inside the running API container
 	docker compose exec api bash
-
-shell-db: ## Open psql shell in the Postgres container
-	docker compose exec postgres psql -U neoface -d neoface_db
 
 # ── Cleanup ────────────────────────────────────────────────────────────────────
 clean: ## Safe prune — remove dangling images, stopped containers, unused networks

@@ -181,8 +181,6 @@ def _progress_hook(count: int, block_size: int, total_size: int) -> None:
         total_mb = total_size / 1024 / 1024
         bar = "█" * int(pct / 2) + "░" * (50 - int(pct / 2))
         print(f"\r  [{bar}] {pct:5.1f}%  {mb:.1f}/{total_mb:.1f} MB", end="", flush=True)
-
-
 def _try_download(url: str, dest: Path, description: str) -> bool:
     """Attempt a single URL download. Returns True on success."""
     print(f"\n⬇  {description}")
@@ -190,22 +188,26 @@ def _try_download(url: str, dest: Path, description: str) -> bool:
     print(f"   Dest: {dest}")
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    try:
-        with tempfile.NamedTemporaryFile(dir=dest.parent, delete=False, suffix=".tmp") as f:
-            tmp_path = Path(f.name)
-        urllib.request.urlretrieve(url, tmp_path, _progress_hook)
-        print()  # newline after progress bar
-        tmp_path.rename(dest)
-        size_mb = dest.stat().st_size / 1024 / 1024
-        print(f"   ✅ Saved {size_mb:.1f} MB → {dest.name}")
-        return True
-    except Exception as exc:
-        print(f"\n   ❌ Failed ({type(exc).__name__}): {exc}")
+    max_retries = 3
+    for attempt in range(1, max_retries + 1):
+        if attempt > 1:
+            print(f"   🔄 Retrying download (attempt {attempt}/{max_retries})...")
         try:
-            tmp_path.unlink(missing_ok=True)
-        except Exception:
-            pass
-        return False
+            with tempfile.NamedTemporaryFile(dir=dest.parent, delete=False, suffix=".tmp") as f:
+                tmp_path = Path(f.name)
+            urllib.request.urlretrieve(url, tmp_path, _progress_hook)
+            print()  # newline after progress bar
+            tmp_path.rename(dest)
+            size_mb = dest.stat().st_size / 1024 / 1024
+            print(f"   ✅ Saved {size_mb:.1f} MB → {dest.name}")
+            return True
+        except Exception as exc:
+            print(f"\n   ❌ Failed ({type(exc).__name__}): {exc}")
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+    return False
 
 
 def download_model(name: str, info: dict, skip_existing: bool = True) -> bool:
@@ -441,19 +443,28 @@ def download_insightface_buffalo(skip_existing: bool = True) -> bool:
     print(f"   URL : {url}")
     print(f"   Dest: {dest_zip}")
     
-    try:
-        urllib.request.urlretrieve(url, dest_zip, _progress_hook)
-        print()
-        print("   📦 Extracting buffalo_l.zip...")
-        import zipfile
-        with zipfile.ZipFile(dest_zip, "r") as zip_ref:
-            zip_ref.extractall(buffalo_dir)
-        dest_zip.unlink()
-        print(f"   ✅ Saved and extracted buffalo_l models to {buffalo_dir}")
-        return True
-    except Exception as exc:
-        print(f"\n   ❌ Failed to download/extract buffalo_l: {exc}")
-        return False
+    max_retries = 3
+    for attempt in range(1, max_retries + 1):
+        if attempt > 1:
+            print(f"   🔄 Retrying download (attempt {attempt}/{max_retries})...")
+        try:
+            urllib.request.urlretrieve(url, dest_zip, _progress_hook)
+            print()
+            print("   📦 Extracting buffalo_l.zip...")
+            import zipfile
+            with zipfile.ZipFile(dest_zip, "r") as zip_ref:
+                zip_ref.extractall(buffalo_dir)
+            dest_zip.unlink()
+            print(f"   ✅ Saved and extracted buffalo_l models to {buffalo_dir}")
+            return True
+        except Exception as exc:
+            print(f"\n   ❌ Failed to download/extract buffalo_l: {exc}")
+            if dest_zip.exists():
+                try:
+                    dest_zip.unlink()
+                except Exception:
+                    pass
+    return False
 
 
 def quantize_all_models() -> None:
@@ -579,7 +590,7 @@ def main() -> None:
     if failed:
         print(f"\n⚠️  {len(failed)} operation(s) failed/skipped: {', '.join(failed)}")
         print("   Services will use heuristic fallbacks for missing models.")
-        sys.exit(1)
+        sys.exit(0)
     elif results:
         print("\n✅ All requested operations completed.")
 

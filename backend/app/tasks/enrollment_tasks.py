@@ -73,7 +73,7 @@ async def _process_enrollment_async(user_id: str, image_paths: list[str]) -> dic
     Inner async logic for enrollment processing.
     Reads images from storage, generates embeddings, updates database.
     """
-    from app.core.database import AsyncSessionLocal
+    from app.core.database import _get_firestore_client
     from app.repositories.embedding_repository import EmbeddingRepository
     from app.repositories.user_repository import UserRepository
     from app.services.face_detector import FaceDetectorService
@@ -110,19 +110,18 @@ async def _process_enrollment_async(user_id: str, image_paths: list[str]) -> dic
 
     avg_embedding = embedder.average_embeddings(embeddings)
 
-    async with AsyncSessionLocal() as session:
-        user_uuid = uuid.UUID(user_id)
-        user_repo = UserRepository(session)
-        embedding_repo = EmbeddingRepository(session)
+    session = _get_firestore_client()
+    user_uuid = uuid.UUID(user_id)
+    user_repo = UserRepository(session)
+    embedding_repo = EmbeddingRepository(session)
 
-        # Replace existing embeddings
-        await embedding_repo.delete_by_user(user_uuid)
-        await embedding_repo.create(
-            user_id=user_uuid,
-            embedding_vector=embedder.embedding_to_list(avg_embedding),
-            source_image_path=image_paths[0] if image_paths else None,
-        )
-        await user_repo.mark_enrolled(user_uuid)
-        await session.commit()
+    # Replace existing embeddings
+    await embedding_repo.delete_by_user(user_uuid)
+    await embedding_repo.create(
+        user_id=user_uuid,
+        embedding_vector=embedder.embedding_to_list(avg_embedding),
+        source_image_path=image_paths[0] if image_paths else None,
+    )
+    await user_repo.mark_enrolled(user_uuid)
 
     return {"status": "enrolled", "processed": processed}

@@ -14,6 +14,8 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import asyncio
 import io
 import sys
+import uuid
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Mock mediapipe submodules to prevent Python 3.14 import failures
@@ -29,82 +31,7 @@ import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.types import TypeDecorator, Text
-from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY, JSONB as PG_JSONB, UUID as PG_UUID
 import json
-
-class SQLiteCompatibleARRAY(TypeDecorator):
-    impl = Text
-    cache_ok = True
-
-    def __init__(self, *args, **kwargs):
-        self.pg_array = PG_ARRAY(*args, **kwargs)
-        super().__init__()
-
-    def load_dialect_impl(self, dialect):
-        if dialect.name == "postgresql":
-            return dialect.type_descriptor(self.pg_array)
-        else:
-            return dialect.type_descriptor(Text())
-
-    def process_bind_param(self, value, dialect):
-        if dialect.name == "postgresql":
-            return value
-        if value is not None:
-            return json.dumps(value)
-        return value
-
-    def process_result_value(self, value, dialect):
-        if dialect.name == "postgresql":
-            return value
-        if value is not None:
-            try:
-                return json.loads(value)
-            except Exception:
-                return value
-        return value
-
-class SQLiteCompatibleJSONB(TypeDecorator):
-    impl = Text
-    cache_ok = True
-
-    def __init__(self, *args, **kwargs):
-        self.pg_jsonb = PG_JSONB(*args, **kwargs)
-        super().__init__()
-
-    def load_dialect_impl(self, dialect):
-        if dialect.name == "postgresql":
-            return dialect.type_descriptor(self.pg_jsonb)
-        else:
-            return dialect.type_descriptor(Text())
-
-    def process_bind_param(self, value, dialect):
-        if dialect.name == "postgresql":
-            return value
-        if value is not None:
-            return json.dumps(value)
-        return value
-
-    def process_result_value(self, value, dialect):
-        if dialect.name == "postgresql":
-            return value
-        if value is not None:
-            try:
-                return json.loads(value)
-            except Exception:
-                return value
-        return value
-
-# Monkeypatch dialects.postgresql before models are loaded
-import sqlalchemy.dialects.postgresql
-sqlalchemy.dialects.postgresql.ARRAY = SQLiteCompatibleARRAY
-sqlalchemy.dialects.postgresql.JSONB = SQLiteCompatibleJSONB
-
-@compiles(PG_UUID, "sqlite")
-def compile_uuid_sqlite(element, compiler, **kw):
-    return "TEXT"
 
 from app.core.database import Base, get_db
 from app.core.security import JWTHandler, PasswordHasher
@@ -115,8 +42,176 @@ from app.models.auth_log import AuthLog
 from app.services.face_detector import DetectedFace, DetectionResult, FaceDetectorService
 from app.services.liveness_service import LivenessCheckResult, LivenessService
 
-# ── Test database ─────────────────────────────────────────────────────────────
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# ── Mock Firestore client ─────────────────────────────────────────────────────
+class MockDocumentSnapshot:
+    def __init__(self, id, data, reference=None):
+        self.id = id
+        self.exists = data is not None
+        self._data = data
+        self.reference = reference
+
+    def to_dict(self):
+        return self._data
+
+class MockDocumentReference:
+    def __init__(self, id, data_store, path):
+        self.id = id
+        self.data_store = data_store
+        self.path = path
+
+    async def get(self):
+        data = self.data_store.get(self.path)
+        return MockDocumentSnapshot(self.id, data, self)
+
+    async def set(self, data):
+        self.data_store.set(self.path, data)
+
+    async def update(self, data):
+        existing = self.data_store.get(self.path) or {}
+        existing.update(data)
+        self.data_store.set(self.path, existing)
+
+    async def delete(self):
+        self.data_store.delete(self.path)
+
+class MockQuery:
+    def __init__(self, col_path, data_store, filters=None, order_by_val=None, limit_val=None, offset_val=None):
+        self.col_path = col_path
+        self.data_store = data_store
+        self.filters = filters or []
+        self.order_by_val = order_by_val
+        self.limit_val = limit_val
+        self.offset_val = offset_val
+
+    def where(self, field, op, val):
+        new_filters = list(self.filters)
+        new_filters.append((field, op, val))
+        return MockQuery(self.col_path, self.data_store, new_filters, self.order_by_val, self.limit_val, self.offset_val)
+
+    def order_by(self, field, direction=None):
+        return MockQuery(self.col_path, self.data_store, self.filters, (field, direction), self.limit_val, self.offset_val)
+
+    def limit(self, limit_val):
+        return MockQuery(self.col_path, self.data_store, self.filters, self.order_by_val, limit_val, self.offset_val)
+
+    def offset(self, offset_val):
+        return MockQuery(self.col_path, self.data_store, self.filters, self.order_by_val, self.limit_val, offset_val)
+
+    def count(self):
+        class MockCountQuery:
+            def __init__(self, query):
+                self.query = query
+            async def get(self):
+                docs = await self.query.get()
+                class MockCountResult:
+                    def __init__(self, val):
+                        self.value = val
+                return [MockCountResult(len(docs))]
+        return MockCountQuery(self)
+
+    async def get(self):
+        docs = self.data_store.get_all(self.col_path)
+        filtered_docs = []
+        for doc_id, data in docs.items():
+            match = True
+            for field, op, val in self.filters:
+                actual_val = data.get(field)
+                if op == "==":
+                    if str(actual_val) != str(val): match = False
+                elif op == "!=":
+                    if str(actual_val) == str(val): match = False
+                elif op == ">=":
+                    if actual_val is None or actual_val < val: match = False
+                elif op == "<=":
+                    if actual_val is None or actual_val > val: match = False
+                elif op == "<":
+                    if actual_val is None or actual_val >= val: match = False
+                elif op == "in":
+                    if actual_val not in val: match = False
+            if match:
+                ref = MockDocumentReference(doc_id, self.data_store, f"{self.col_path}/{doc_id}")
+                filtered_docs.append(MockDocumentSnapshot(doc_id, data, ref))
+        
+        if self.order_by_val:
+            field, direction = self.order_by_val
+            filtered_docs.sort(key=lambda x: x.to_dict().get(field) or "", reverse=(direction == "DESCENDING"))
+        
+        if self.offset_val:
+            filtered_docs = filtered_docs[self.offset_val:]
+        if self.limit_val:
+            filtered_docs = filtered_docs[:self.limit_val]
+        return filtered_docs
+
+class MockCollectionReference:
+    def __init__(self, path, data_store):
+        self.path = path
+        self.data_store = data_store
+
+    def document(self, id):
+        return MockDocumentReference(id, self.data_store, f"{self.path}/{id}")
+
+    def where(self, field, op, val):
+        return MockQuery(self.path, self.data_store).where(field, op, val)
+
+    def order_by(self, field, direction=None):
+        return MockQuery(self.path, self.data_store).order_by(field, direction)
+
+    def limit(self, limit_val):
+        return MockQuery(self.path, self.data_store).limit(limit_val)
+
+    def offset(self, offset_val):
+        return MockQuery(self.path, self.data_store).offset(offset_val)
+
+    def count(self):
+        return MockQuery(self.path, self.data_store).count()
+
+    async def get(self):
+        return await MockQuery(self.path, self.data_store).get()
+
+class MockDataStore:
+    def __init__(self):
+        self.store = {}
+
+    def get(self, path):
+        return self.store.get(path)
+
+    def set(self, path, data):
+        self.store[path] = data
+
+    def delete(self, path):
+        self.store.pop(path, None)
+
+    def get_all(self, col_path):
+        prefix = f"{col_path}/"
+        return {k.split("/")[-1]: v for k, v in self.store.items() if k.startswith(prefix)}
+
+class MockFirestoreClient:
+    def __init__(self):
+        self.data_store = MockDataStore()
+
+    def collection(self, path):
+        return MockCollectionReference(path, self.data_store)
+
+    async def collections(self):
+        return []
+
+    async def commit(self):
+        pass
+
+    async def rollback(self):
+        pass
+
+    def add(self, instance):
+        pass
+
+    async def flush(self):
+        pass
+
+    async def refresh(self, instance):
+        pass
+
+    async def close(self):
+        pass
 
 
 @pytest.fixture(scope="session")
@@ -127,35 +222,14 @@ def event_loop():
     loop.close()
 
 
-@pytest_asyncio.fixture(scope="session")
-async def test_engine():
-    """Create in-memory SQLite engine for tests."""
-    engine = create_async_engine(
-        TEST_DATABASE_URL,
-        echo=False,
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
+@pytest.fixture
+def db_session() -> MockFirestoreClient:
+    """Provide a mock Firestore client for tests."""
+    return MockFirestoreClient()
 
 
 @pytest_asyncio.fixture
-async def db_session(test_engine) -> AsyncSession:
-    """Provide a transactional test session that rolls back after each test."""
-    session_factory = async_sessionmaker(test_engine, expire_on_commit=False)
-    async with session_factory() as session:
-        async def mock_commit():
-            await session.flush()
-        session.commit = mock_commit
-        yield session
-        await session.rollback()
-
-
-@pytest_asyncio.fixture
-async def async_client(db_session: AsyncSession, mock_face_detector) -> AsyncClient:
+async def async_client(db_session: MockFirestoreClient, mock_face_detector) -> AsyncClient:
     """
     Async HTTP client with overridden database dependency and mocked face detector.
     Use this for API integration tests.
@@ -275,64 +349,73 @@ def mock_liveness_fail():
 # ── Test data factories ────────────────────────────────────────────────────────
 
 @pytest_asyncio.fixture
-async def test_user(db_session: AsyncSession) -> User:
+async def test_user(db_session: MockFirestoreClient) -> User:
     """Create a standard test user in the database."""
+    uid = uuid.uuid4()
+    now = datetime.now(timezone.utc)
     user = User(
+        id=uid,
         name="Test User",
         email="testuser@example.com",
         hashed_password=PasswordHasher.hash("TestPass123!"),
         role="user",
         is_active=True,
         is_enrolled=False,
+        created_at=now,
+        updated_at=now,
     )
-    db_session.add(user)
-    await db_session.flush()
-    await db_session.refresh(user)
+    await db_session.collection("users").document(str(uid)).set(user.to_dict())
     return user
 
 
 @pytest_asyncio.fixture
-async def test_admin(db_session: AsyncSession) -> User:
+async def test_admin(db_session: MockFirestoreClient) -> User:
     """Create a test admin user in the database."""
+    uid = uuid.uuid4()
+    now = datetime.now(timezone.utc)
     admin = User(
+        id=uid,
         name="Test Admin",
         email="testadmin@example.com",
         hashed_password=PasswordHasher.hash("AdminPass123!"),
         role="admin",
         is_active=True,
         is_enrolled=False,
+        created_at=now,
+        updated_at=now,
     )
-    db_session.add(admin)
-    await db_session.flush()
-    await db_session.refresh(admin)
+    await db_session.collection("users").document(str(uid)).set(admin.to_dict())
     return admin
 
 
 @pytest_asyncio.fixture
-async def enrolled_user(db_session: AsyncSession) -> tuple[User, FaceEmbedding]:
+async def enrolled_user(db_session: MockFirestoreClient) -> tuple[User, FaceEmbedding]:
     """Create a test user with a face embedding."""
+    uid = uuid.uuid4()
+    now = datetime.now(timezone.utc)
     user = User(
+        id=uid,
         name="Enrolled User",
         email="enrolled@example.com",
         hashed_password=PasswordHasher.hash("TestPass123!"),
         role="user",
         is_active=True,
         is_enrolled=True,
+        created_at=now,
+        updated_at=now,
     )
-    db_session.add(user)
-    await db_session.flush()
+    await db_session.collection("users").document(str(uid)).set(user.to_dict())
 
+    emb_id = uuid.uuid4()
     embedding = FaceEmbedding(
+        id=emb_id,
         user_id=user.id,
         embedding_vector=make_fake_embedding(seed=99).tolist(),
         embedding_version="arcface_r100_v1",
         embedding_dimension=512,
         quality_score=85.0,
     )
-    db_session.add(embedding)
-    await db_session.flush()
-    await db_session.refresh(user)
-    await db_session.refresh(embedding)
+    await db_session.collection("face_embeddings").document(str(emb_id)).set(embedding.to_dict())
     return user, embedding
 
 

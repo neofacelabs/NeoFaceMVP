@@ -72,16 +72,15 @@ class InfraService:
 
     async def _check_db(self) -> ServiceHealth:
         import time
-        from app.core.database import AsyncSessionLocal
-        from sqlalchemy import text
+        from app.core.database import _get_firestore_client
         t0 = time.perf_counter()
         try:
-            async with AsyncSessionLocal() as session:
-                await session.execute(text("SELECT 1"))
+            client = _get_firestore_client()
+            await client.collections()
             latency = (time.perf_counter() - t0) * 1000
-            return ServiceHealth(name="postgresql", status="ok", latency_ms=round(latency, 2))
+            return ServiceHealth(name="firestore", status="ok", latency_ms=round(latency, 2))
         except Exception as exc:
-            return ServiceHealth(name="postgresql", status="error", detail=str(exc))
+            return ServiceHealth(name="firestore", status="error", detail=str(exc))
 
     async def _check_redis(self) -> ServiceHealth:
         import time

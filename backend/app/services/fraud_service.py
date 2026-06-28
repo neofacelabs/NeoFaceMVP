@@ -1,41 +1,28 @@
 """
-NeoFace AaaS — Fraud Center Service
-Aggregates threat intelligence from existing Trust Engine models:
-  - DeepfakeLog  → deepfake detections
-  - LivenessLog  → spoof/liveness failures
-  - RiskScore    → high-risk sessions
-
-Returns real values where Trust Engine data exists, mocked zeros where not.
+NeoFace AaaS — Fraud Center Service using Firebase Firestore.
 """
 
 from __future__ import annotations
 
+import uuid
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from google.cloud.firestore import AsyncClient
 
 from app.models.trust_engine import RiskScore
 from app.schemas.aaas import FraudEventResponse, FraudOverviewResponse, FraudTimelinePoint
 
 
 class FraudService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncClient) -> None:
         self.db = db
 
     async def get_overview(self) -> FraudOverviewResponse:
         since_24h = datetime.now(timezone.utc) - timedelta(hours=24)
 
-        # Deepfake detections
         deepfake_count = await self._count_deepfakes(since_24h)
-
-        # Spoof attempts (liveness failures)
         spoof_count = await self._count_spoof_attempts(since_24h)
-
-        # High risk sessions (risk_score > 70)
         high_risk = await self._count_high_risk_sessions(since_24h)
-
-        # Replay attacks: approximated as deepfakes with score < 0.3 (captured videos)
         replay_count = await self._count_replay_attacks(since_24h)
 
         return FraudOverviewResponse(
@@ -72,27 +59,27 @@ class FraudService:
         """Return recent high-risk and failed liveness events."""
         since_7d = datetime.now(timezone.utc) - timedelta(days=7)
 
-        q = select(RiskScore).where(
-            RiskScore.final_trust_score < 50,  # lower = higher risk
-            RiskScore.created_at >= since_7d,
-        ).order_by(RiskScore.created_at.desc())
+        col = self.db.collection("risk_scores")
+        query = col.where("final_trust_score", "<", 50).where("created_at", ">=", since_7d)
+        
+        count_res = await query.count().get()
+        total = count_res[0].value
 
-        count_q = select(func.count()).select_from(q.subquery())
-        total = (await self.db.execute(count_q)).scalar_one()
-        q = q.offset((page - 1) * page_size).limit(page_size)
-        scores = (await self.db.execute(q)).scalars().all()
+        offset = (page - 1) * page_size
+        query = query.order_by("created_at", direction="DESCENDING").offset(offset).limit(page_size)
+        docs = await query.get()
 
-        events = [
-            FraudEventResponse(
-                id=s.id,
+        events = []
+        for doc in docs:
+            data = doc.to_dict()
+            events.append(FraudEventResponse(
+                id=uuid.UUID(doc.id),
                 event_type="high_risk_session",
-                risk_score=s.final_trust_score,
+                risk_score=data.get("final_trust_score"),
                 confidence=None,
-                ip_address=s.ip_address,
-                created_at=s.created_at,
-            )
-            for s in scores
-        ]
+                ip_address=data.get("ip_address"),
+                created_at=data.get("created_at"),
+            ))
         return events, total
 
     # ── Private helpers ───────────────────────────────────────────────────────
@@ -110,23 +97,16 @@ class FraudService:
         return 0
 
     async def _count_high_risk_sessions(self, since: datetime) -> int:
-        result = await self.db.execute(
-            select(func.count(RiskScore.id)).where(
-                RiskScore.final_trust_score < 70,  # lower score = higher risk in trust engine
-                RiskScore.created_at >= since,
-            )
-        )
-        return result.scalar_one() or 0
+        col = self.db.collection("risk_scores")
+        query = col.where("final_trust_score", "<", 70).where("created_at", ">=", since)
+        res = await query.count().get()
+        return res[0].value
 
     async def _count_high_risk_sessions_range(self, start: datetime, end: datetime) -> int:
-        result = await self.db.execute(
-            select(func.count(RiskScore.id)).where(
-                RiskScore.final_trust_score < 70,  # lower = riskier
-                RiskScore.created_at >= start,
-                RiskScore.created_at <= end,
-            )
-        )
-        return result.scalar_one() or 0
+        col = self.db.collection("risk_scores")
+        query = col.where("final_trust_score", "<", 70).where("created_at", ">=", start).where("created_at", "<=", end)
+        res = await query.count().get()
+        return res[0].value
 
     async def _count_replay_attacks(self, since: datetime) -> int:
         return 0

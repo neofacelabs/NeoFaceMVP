@@ -201,74 +201,110 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await close_db()
     logger.info("Shutdown complete")
 
-
 async def bootstrap_admin() -> None:
     """
     Create default admin and demo users if they don't exist.
     Credentials are loaded from environment variables and defaults.
     """
-    from app.core.database import AsyncSessionLocal
+    from app.core.database import _get_firestore_client
     from app.core.security import PasswordHasher
     from app.repositories.user_repository import UserRepository
     from app.repositories.organization_repository import OrganizationRepository
     from app.schemas.user import UserCreate
 
-    async with AsyncSessionLocal() as session:
+    try:
+        session = _get_firestore_client()
         user_repo = UserRepository(session)
         org_repo = OrganizationRepository(session)
 
+        # Seed default organization
         default_org = await org_repo.get_default()
         if not default_org:
-            logger.warning("Default organization not seeded yet. Skipping membership seeding.")
+            from app.schemas.aaas import OrganizationCreate
+            org_schema = OrganizationCreate(
+                name="NeoFace Default",
+                slug="neoface-default",
+                plan="pro",
+            )
+            default_org = await org_repo.create(org_schema)
+            logger.info("Default organization seeded successfully", org_id=str(default_org.id))
+
+        if default_org:
+            # Seed default project if organization has none
+            from app.schemas.aaas import ApplicationCreate
+            col = session.collection("applications").where("organization_id", "==", str(default_org.id)).limit(1)
+            apps_docs = await col.get()
+            if not apps_docs:
+                app_schema = ApplicationCreate(
+                    name="Default Face Terminal",
+                    environment="production",
+                    description="Default project for biometric verification and terminals",
+                    allowed_origins=["*"],
+                    allowed_domains=["*"],
+                )
+                await org_repo.create_application(default_org.id, app_schema)
+                logger.info("Default application/project seeded successfully")
 
         # 1. Super Admin
-        if not await user_repo.exists_by_email(settings.ADMIN_EMAIL):
+        admin_user = await user_repo.get_by_email(settings.ADMIN_EMAIL)
+        if not admin_user:
             hashed = PasswordHasher.hash(settings.ADMIN_PASSWORD)
             admin_schema = UserCreate(
                 name=settings.ADMIN_NAME,
                 email=settings.ADMIN_EMAIL,
                 password=settings.ADMIN_PASSWORD,
             )
-            user = await user_repo.create(admin_schema, hashed_password=hashed, role="admin")
-            if default_org:
-                await org_repo.add_member(default_org.id, user.id, role="owner")
-            await session.commit()
+            admin_user = await user_repo.create(admin_schema, hashed_password=hashed, role="admin")
             logger.info("Admin user bootstrapped", email=settings.ADMIN_EMAIL)
-        else:
-            logger.debug("Admin user already exists", email=settings.ADMIN_EMAIL)
+        
+        if admin_user and default_org:
+            m_docs = await session.collection("org_memberships").where("user_id", "==", str(admin_user.id)).limit(1).get()
+            if not m_docs:
+                await org_repo.add_member(default_org.id, admin_user.id, role="owner")
+                logger.info("Admin user added to default organization as owner")
+
         # 2. Org Admin
         org_admin_email = "orgadmin@neoface.io"
-        if not await user_repo.exists_by_email(org_admin_email):
+        org_admin_user = await user_repo.get_by_email(org_admin_email)
+        if not org_admin_user:
             hashed = PasswordHasher.hash("AdminPass123!")
             org_admin_schema = UserCreate(
                 name="Demo Org Admin",
                 email=org_admin_email,
                 password="AdminPass123!",
             )
-            user = await user_repo.create(org_admin_schema, hashed_password=hashed, role="user")
-            if default_org:
-                await org_repo.add_member(default_org.id, user.id, role="admin")
-            await session.commit()
+            org_admin_user = await user_repo.create(org_admin_schema, hashed_password=hashed, role="user")
             logger.info("Org admin user bootstrapped", email=org_admin_email)
-        else:
-            logger.debug("Org admin user already exists", email=org_admin_email)
+            
+        if org_admin_user and default_org:
+            m_docs = await session.collection("org_memberships").where("user_id", "==", str(org_admin_user.id)).limit(1).get()
+            if not m_docs:
+                await org_repo.add_member(default_org.id, org_admin_user.id, role="admin")
+                logger.info("Org admin user added to default organization as admin")
 
         # 3. Regular Member
         member_email = "member@neoface.io"
-        if not await user_repo.exists_by_email(member_email):
+        member_user = await user_repo.get_by_email(member_email)
+        if not member_user:
             hashed = PasswordHasher.hash("AdminPass123!")
             member_schema = UserCreate(
                 name="Demo Member User",
                 email=member_email,
                 password="AdminPass123!",
             )
-            user = await user_repo.create(member_schema, hashed_password=hashed, role="user")
-            if default_org:
-                await org_repo.add_member(default_org.id, user.id, role="member")
-            await session.commit()
+            member_user = await user_repo.create(member_schema, hashed_password=hashed, role="user")
             logger.info("Member user bootstrapped", email=member_email)
-        else:
-            logger.debug("Member user already exists", email=member_email)
+            
+        if member_user and default_org:
+            m_docs = await session.collection("org_memberships").where("user_id", "==", str(member_user.id)).limit(1).get()
+            if not m_docs:
+                await org_repo.add_member(default_org.id, member_user.id, role="member")
+                logger.info("Member user added to default organization as member")
+
+    except Exception as exc:
+        logger.error(f"Failed to bootstrap admin/membership data (non-fatal): {exc}")
+
+
 # ── Application factory ────────────────────────────────────────────────────────
 def create_app() -> FastAPI:
     """
@@ -455,10 +491,9 @@ InsightFace • ArcFace • MediaPipe • FastAPI • PostgreSQL • Redis • C
 
         # ── Database ──────────────────────────────────────────────────────────
         try:
-            from app.core.database import AsyncSessionLocal
-            from sqlalchemy import text
-            async with AsyncSessionLocal() as session:
-                await session.execute(text("SELECT 1"))
+            from app.core.database import _get_firestore_client
+            client = _get_firestore_client()
+            await client.collections()
             checks["database"] = "ok"
         except Exception as e:
             checks["database"] = f"error: {e}"

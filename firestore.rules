@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // By default, secure all collections. Only allow backend service accounts (which bypass rules)
+    // or specifically authorized client operations to read/write.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // If client terminals need to listen to real-time session verification status
+    match /auth_sessions/{sessionId} {
+      allow read: if request.auth != null;
+    }
+
+    // Allow users to view their own profile details
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

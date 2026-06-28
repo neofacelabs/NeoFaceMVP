@@ -1,16 +1,11 @@
 """
 NeoFace AaaS — Celery Webhook Delivery Task
 Delivers webhook payloads to customer endpoints with exponential backoff.
-
-Retry policy:
-  - Max 3 attempts
-  - Backoff: 30s → 120s → 480s
-  - On final failure: mark delivery as failed
 """
 
 from __future__ import annotations
 
-import json
+import asyncio
 from celery import Celery
 from app.core.config import settings
 
@@ -40,61 +35,85 @@ celery_app.conf.update(
 def deliver_webhook(self, delivery_id: str) -> dict:
     """
     Deliver a single webhook payload to the registered endpoint.
-
-    Uses synchronous httpx (Celery tasks are sync by default).
-    Updates the WebhookDelivery record with the result.
+    Runs the async implementation using asyncio.run.
     """
+    return asyncio.run(self._deliver_webhook_async(delivery_id))
+
+
+async def _deliver_webhook_async(self, delivery_id: str) -> dict:
     import httpx
-    from sqlalchemy.orm import Session
-    from sqlalchemy import create_engine, select
-
-    # Use synchronous DB for Celery task
-    sync_url = settings.DATABASE_URL.replace("+asyncpg", "+psycopg2")
-    engine = create_engine(sync_url, pool_pre_ping=True)
-
-    with Session(engine) as db:
-        from app.models.webhook import WebhookDelivery, WebhookEndpoint
-        import uuid
-
-        delivery_uuid = uuid.UUID(delivery_id)
-        delivery = db.get(WebhookDelivery, delivery_uuid)
-        if not delivery:
-            return {"error": "delivery not found"}
-
-        endpoint = db.get(WebhookEndpoint, delivery.endpoint_id)
-        if not endpoint or endpoint.status != "active":
-            delivery.status = "failed"
-            db.commit()
-            return {"error": "endpoint inactive"}
-
-        # Build payload with signature
-        from app.services.webhook_service import sign_payload
-        signature = sign_payload(endpoint.signing_secret, delivery.payload)
-
-        try:
-            delivery.attempts += 1
-            resp = httpx.post(
-                endpoint.url,
-                json=delivery.payload,
+    from app.core.database import _get_firestore_client
+    
+    db = _get_firestore_client()
+    
+    # 1. Fetch delivery document
+    delivery_ref = db.collection("webhook_deliveries").document(delivery_id)
+    delivery_doc = await delivery_ref.get()
+    if not delivery_doc.exists:
+        return {"error": "delivery not found"}
+    delivery_data = delivery_doc.to_dict()
+    
+    # 2. Fetch endpoint document
+    endpoint_id = delivery_data.get("endpoint_id")
+    endpoint_ref = db.collection("webhook_endpoints").document(str(endpoint_id))
+    endpoint_doc = await endpoint_ref.get()
+    if not endpoint_doc.exists:
+        await delivery_ref.update({"status": "failed"})
+        return {"error": "endpoint not found"}
+        
+    endpoint_data = endpoint_doc.to_dict()
+    if endpoint_data.get("status") != "active":
+        await delivery_ref.update({"status": "failed"})
+        return {"error": "endpoint inactive"}
+        
+    # Build payload with signature
+    from app.services.webhook_service import sign_payload
+    signing_secret = endpoint_data.get("signing_secret", "")
+    payload = delivery_data.get("payload", {})
+    event_type = delivery_data.get("event_type", "")
+    
+    signature = sign_payload(signing_secret, payload)
+    
+    attempts = delivery_data.get("attempts", 0) + 1
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                endpoint_data.get("url"),
+                json=payload,
                 headers={
                     "Content-Type": "application/json",
                     "X-NeoFace-Signature": signature,
-                    "X-NeoFace-Event": delivery.event_type,
+                    "X-NeoFace-Event": event_type,
                     "User-Agent": "NeoFace-Webhooks/1.0",
-                },
-                timeout=10.0,
+                }
             )
-            delivery.http_status = resp.status_code
-            if resp.status_code < 400:
-                delivery.status = "success"
-            else:
-                delivery.status = "failed"
-                raise Exception(f"HTTP {resp.status_code}")
+            
+        http_status = resp.status_code
+        status = "success" if resp.status_code < 400 else "failed"
+        
+        await delivery_ref.update({
+            "attempts": attempts,
+            "http_status": http_status,
+            "status": status,
+        })
+        
+        if status == "failed":
+            raise Exception(f"HTTP {http_status}")
+            
+    except Exception as exc:
+        status = "retrying" if self.request.retries < self.max_retries else "failed"
+        await delivery_ref.update({
+            "attempts": attempts,
+            "status": status,
+        })
+        
+        # Exponential backoff countdown
+        countdown = 30 * (2 ** self.request.retries)
+        raise self.retry(exc=exc, countdown=countdown)
+        
+    return {"status": status, "http_status": http_status}
 
-        except Exception as exc:
-            delivery.status = "retrying" if self.request.retries < self.max_retries else "failed"
-            db.commit()
-            raise self.retry(exc=exc, countdown=30 * (2 ** self.request.retries))
 
-        db.commit()
-        return {"status": delivery.status, "http_status": delivery.http_status}
+# Monkeypatch the class to have _deliver_webhook_async
+celery_app.Task._deliver_webhook_async = _deliver_webhook_async

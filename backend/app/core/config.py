@@ -48,12 +48,7 @@ class Settings(BaseSettings):
     # Leave empty to disable Google Auth verification (backend falls through gracefully).
     FIREBASE_CREDENTIALS_JSON: str = ""
 
-    # ─── Database ─────────────────────────────────────────────────────────────
-    DATABASE_URL: str = (
-        "postgresql+asyncpg://neoface:neoface_pass@localhost:5432/neoface_db"
-    )
-    DATABASE_POOL_SIZE: int = 5
-    DATABASE_MAX_OVERFLOW: int = 5
+
 
     # ─── Redis ────────────────────────────────────────────────────────────────
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -98,6 +93,7 @@ class Settings(BaseSettings):
     AWS_S3_REGION: str = "us-east-1"
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
+    AWS_S3_ENDPOINT_URL: str = ""
 
     # ─── Rate Limiting ────────────────────────────────────────────────────────
     RATE_LIMIT_VERIFICATION: str = "10/minute"
@@ -158,6 +154,9 @@ class Settings(BaseSettings):
     # ─── CORS ─────────────────────────────────────────────────────────────────
     ALLOWED_ORIGINS: list[str] = [
         "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
         "http://localhost:5173",
         # Production & Vercel deployments
         "https://neofacelabs.vercel.app",
@@ -178,10 +177,7 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"
 
-    @property
-    def database_url_sync(self) -> str:
-        """Synchronous database URL for Alembic migrations."""
-        return self.DATABASE_URL.replace("+asyncpg", "+psycopg2")
+
 
 
 @lru_cache(maxsize=1)

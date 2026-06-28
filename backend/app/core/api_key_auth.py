@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 import bcrypt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
-from sqlalchemy.ext.asyncio import AsyncSession
+from google.cloud.firestore import AsyncClient
 
 from app.core.logging import logger
 
@@ -45,7 +45,7 @@ async def get_org_context(
     request: Request,
     api_key: str | None = Depends(_api_key_scheme),
     token: str | None = Depends(_oauth2_scheme),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncClient = Depends(get_db),
 ) -> OrgContext:
     """
     FastAPI dependency — resolves OrgContext from request credentials.
@@ -70,7 +70,7 @@ async def get_org_context(
     )
 
 
-async def _resolve_api_key(api_key: str, db: AsyncSession) -> OrgContext:
+async def _resolve_api_key(api_key: str, db: AsyncClient) -> OrgContext:
     """Validate API key via prefix lookup + bcrypt verify."""
     from app.repositories.api_key_repository import ApiKeyRepository
 
@@ -106,7 +106,7 @@ async def _resolve_api_key(api_key: str, db: AsyncSession) -> OrgContext:
     )
 
 
-async def _resolve_jwt(token: str, db: AsyncSession) -> OrgContext:
+async def _resolve_jwt(token: str, db: AsyncClient) -> OrgContext:
     """Resolve org context from a JWT-authenticated dashboard user."""
     from app.repositories.organization_repository import OrganizationRepository
     from app.models.org_membership import OrgMembership
@@ -146,13 +146,21 @@ async def _resolve_jwt(token: str, db: AsyncSession) -> OrgContext:
         )
 
     # Regular users: check org membership and role
-    result = await db.execute(
-        select(OrgMembership)
-        .where(OrgMembership.user_id == user_id)
-        .order_by(OrgMembership.created_at.asc())
-        .limit(1)
-    )
-    membership = result.scalar_one_or_none()
+    col = db.collection("org_memberships")
+    query = col.where("user_id", "==", str(user_id)).order_by("created_at", direction="ASCENDING").limit(1)
+    docs = await query.get()
+    if docs:
+        doc = docs[0]
+        data = doc.to_dict()
+        membership = OrgMembership(
+            id=uuid.UUID(doc.id),
+            organization_id=uuid.UUID(data.get("organization_id")),
+            user_id=uuid.UUID(data.get("user_id")),
+            role=data.get("role"),
+            created_at=data.get("created_at"),
+        )
+    else:
+        membership = None
 
     if not membership:
         # Guest or newly registered user with no organization

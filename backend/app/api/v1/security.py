@@ -21,19 +21,21 @@ async def get_threat_alerts(
     ctx: OrgContext = Depends(get_org_context),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    stmt = (
-        select(AuthenticationSession)
-        .where(
-            AuthenticationSession.organization_id == ctx.org_id,
-            AuthenticationSession.status == "failed"
-        )
-        .order_by(AuthenticationSession.created_at.desc())
-        .limit(limit)
+    from app.repositories.session_repository import SessionRepository
+    session_repo = SessionRepository(db)
+    
+    # Query up to 200 sessions to find failed ones using the active composite index (org_id, created_at DESC)
+    logs, total = await session_repo.list_by_org(
+        org_id=ctx.org_id,
+        page=1,
+        page_size=200
     )
-    logs = (await db.execute(stmt)).scalars().all()
 
     threats = []
     for l in logs:
+        if l.status != "failed":
+            continue
+            
         threat_type = "Brute Force Attempt"
         if l.fail_reason and ("spoof" in l.fail_reason.lower() or "liveness" in l.fail_reason.lower() or "deepfake" in l.fail_reason.lower()):
             threat_type = "Deepfake / Photo Spoof Attempt"
@@ -49,6 +51,9 @@ async def get_threat_alerts(
             "timestamp": l.created_at.isoformat() if l.created_at else datetime.now(timezone.utc).isoformat(),
             "status": "investigating",
         })
+        
+        if len(threats) >= limit:
+            break
 
     # If no real threats exist, return empty lists so we do not have mock data showing.
     return {
@@ -98,7 +103,6 @@ async def release_lockdown(
         "message": "Emergency lockdown successfully released."
     }
 
-
 @router.get(
     "/blocklist",
     summary="Get active IP and identity blocklist",
@@ -107,9 +111,14 @@ async def get_blocklist(
     ctx: OrgContext = Depends(get_org_context),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    # Query suspended identities as blocked identities
-    stmt = select(Identity).where(Identity.organization_id == ctx.org_id, Identity.status == "suspended")
-    suspended = (await db.execute(stmt)).scalars().all()
+    from app.repositories.identity_repository import IdentityRepository
+    identity_repo = IdentityRepository(db)
+    
+    suspended, total = await identity_repo.list_by_org(
+        org_id=ctx.org_id,
+        status="suspended",
+        page_size=100
+    )
     
     blocked_identities = [{
         "id": str(i.id),

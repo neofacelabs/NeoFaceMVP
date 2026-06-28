@@ -18,28 +18,6 @@
 
 services:
 
-  # ── PostgreSQL ──────────────────────────────────────────────────────────────
-  postgres:
-    image: postgres:16-alpine
-    container_name: neoface_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: neoface_db
-      POSTGRES_USER: neoface
-      POSTGRES_PASSWORD: neoface_pass
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U neoface -d neoface_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-    networks:
-      - neoface_net
-
   # ── Redis ───────────────────────────────────────────────────────────────────
   redis:
     image: redis:7.2-alpine
@@ -70,8 +48,6 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # Database — LOCAL DEV OVERRIDE
-      DATABASE_URL: "${DATABASE_URL:-postgresql+asyncpg://neoface:neoface_pass@postgres:5432/neoface_db}"
       # Redis
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
@@ -98,15 +74,11 @@ services:
     volumes:
       - ./backend/models:/app/models:ro  # ML model weights (read-only)
       - ./backend/app:/app/app:ro      # Live code reload in dev
-      - ./backend/migrations:/app/migrations:ro
-      - ./backend/alembic.ini:/app/alembic.ini:ro
       - ./backend/docker-entrypoint.sh:/app/docker-entrypoint.sh
       - api_logs:/app/logs
       - api_storage:/app/storage
       - insightface_cache:/app/.insightface
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -136,8 +108,6 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # Database — LOCAL DEV OVERRIDE
-      DATABASE_URL: "${DATABASE_URL:-postgresql+asyncpg://neoface:neoface_pass@postgres:5432/neoface_db}"
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
@@ -145,16 +115,12 @@ services:
     volumes:
       - ./backend/models:/app/models:ro
       - ./backend/app:/app/app:ro
-      - ./backend/migrations:/app/migrations:ro
-      - ./backend/alembic.ini:/app/alembic.ini:ro
       - ./backend/docker-entrypoint.sh:/app/docker-entrypoint.sh
       - api_logs:/app/logs
       - insightface_cache:/app/.insightface
     healthcheck:
       test: ["NONE"]
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
@@ -177,15 +143,11 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # Database — LOCAL DEV OVERRIDE
-      DATABASE_URL: "${DATABASE_URL:-postgresql+asyncpg://neoface:neoface_pass@postgres:5432/neoface_db}"
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
     volumes:
       - ./backend/app:/app/app:ro
-      - ./backend/migrations:/app/migrations:ro
-      - ./backend/alembic.ini:/app/alembic.ini:ro
       - ./backend/docker-entrypoint.sh:/app/docker-entrypoint.sh
     depends_on:
       redis:
@@ -213,8 +175,6 @@ services:
 
 # ── Volumes ────────────────────────────────────────────────────────────────────
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
     driver: local
   api_logs:

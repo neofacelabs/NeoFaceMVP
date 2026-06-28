@@ -3,13 +3,10 @@ import uuid
 import random
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
-from sqlalchemy import select, func, and_
-from sqlalchemy.ext.asyncio import AsyncSession
+from google.cloud.firestore import AsyncClient
 
-from app.core.database import get_db, AsyncSessionLocal
+from app.core.database import get_db, _get_firestore_client
 from app.core.rbac import require_permissions
-from app.models.auth_log import AuthLog
-from app.models.identity import Identity
 from app.models.user import User
 
 router = APIRouter(prefix="/authentication", tags=["Admin — Authentication"])
@@ -22,36 +19,38 @@ router = APIRouter(prefix="/authentication", tags=["Admin — Authentication"])
 async def get_auth_stats(
     days: int = Query(default=30, ge=1),
     _=Depends(require_permissions(["audit.read"])),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncClient = Depends(get_db),
 ) -> dict:
     time_limit = datetime.now(timezone.utc) - timedelta(days=days)
     
-    # Query success/failure counts
-    stmt = (
-        select(
-            func.count(AuthLog.id).label("total"),
-            func.count(func.nullif(AuthLog.authentication_result, False)).label("success")
-        )
-        .where(AuthLog.timestamp >= time_limit)
-    )
-    res = (await db.execute(stmt)).first()
+    col = db.collection("auth_logs")
+    docs = await col.get()
     
-    total = res.total if res else 0
-    success = res.success if res else 0
+    # Filter logs in python
+    filtered_logs = []
+    for doc in docs:
+        data = doc.to_dict()
+        ts = data.get("timestamp")
+        if isinstance(ts, str):
+            ts_dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        else:
+            ts_dt = ts
+            
+        if ts_dt and ts_dt >= time_limit:
+            filtered_logs.append(data)
+            
+    total = len(filtered_logs)
+    success = sum(1 for log in filtered_logs if log.get("authentication_result") is True)
     failures = total - success
     success_rate = round((success / total * 100) if total > 0 else 100.0, 2)
     
     # Query spoof / threat logs (we can count failed attempts with high risk or liveness failure)
-    spoofs = (await db.execute(
-        select(func.count(AuthLog.id))
-        .where(
-            and_(
-                AuthLog.timestamp >= time_limit,
-                AuthLog.authentication_result == False,
-                AuthLog.failure_reason.ilike("%spoof%") | AuthLog.failure_reason.ilike("%liveness%")
-            )
-        )
-    )).scalar_one()
+    spoofs = 0
+    for log in filtered_logs:
+        if log.get("authentication_result") is False:
+            reason = (log.get("failure_reason") or "").lower()
+            if "spoof" in reason or "liveness" in reason:
+                spoofs += 1
 
     # Latency estimation
     avg_latency = 285.4 # ms
@@ -96,40 +95,70 @@ async def get_auth_logs(
     org_id: uuid.UUID | None = Query(default=None),
     status: bool | None = Query(default=None),
     _=Depends(require_permissions(["audit.read"])),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncClient = Depends(get_db),
 ) -> dict:
-    stmt = select(AuthLog)
+    col = db.collection("auth_logs")
+    query = col
+    if status is not None:
+        query = query.where("authentication_result", "==", status)
+        
+    docs = await query.get()
     
     if org_id:
-        stmt = stmt.join(Identity, Identity.id == AuthLog.user_id).where(Identity.organization_id == org_id)
-    if status is not None:
-        stmt = stmt.where(AuthLog.authentication_result == status)
+        id_docs = await db.collection("identities").where("organization_id", "==", str(org_id)).get()
+        id_ids = [doc.id for doc in id_docs]
+        if not id_ids:
+            return {"total": 0, "page": page, "page_size": page_size, "items": []}
+        filtered_docs = [doc for doc in docs if doc.to_dict().get("user_id") in id_ids]
+    else:
+        filtered_docs = docs
         
-    count_stmt = select(func.count()).select_from(stmt.subquery())
-    total = (await db.execute(count_stmt)).scalar_one()
+    # Sort by timestamp desc
+    def get_timestamp(d):
+        ts = d.to_dict().get("timestamp")
+        if isinstance(ts, str):
+            return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return ts or datetime.min.replace(tzinfo=timezone.utc)
+        
+    filtered_docs.sort(key=get_timestamp, reverse=True)
     
-    stmt = stmt.order_by(AuthLog.timestamp.desc()).offset((page - 1) * page_size).limit(page_size)
-    logs = (await db.execute(stmt)).scalars().all()
+    total = len(filtered_docs)
+    offset = (page - 1) * page_size
+    page_docs = filtered_docs[offset:offset + page_size]
     
     items = []
-    for log in logs:
-        # Load user
+    for doc in page_docs:
+        log_data = doc.to_dict()
+        user_id = log_data.get("user_id")
         user = None
-        if log.user_id:
-            user = (await db.execute(select(User).where(User.id == log.user_id))).scalar_one_or_none()
-            
+        if user_id:
+            user_doc = await db.collection("users").document(str(user_id)).get()
+            if user_doc.exists:
+                udata = user_doc.to_dict()
+                user = User(
+                    id=uuid.UUID(user_doc.id),
+                    name=udata.get("name"),
+                    email=udata.get("email"),
+                )
+                
+        ts = log_data.get("timestamp")
+        if isinstance(ts, str):
+            ts_dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        else:
+            ts_dt = ts
+
         items.append({
-            "id": str(log.id),
-            "user_id": str(log.user_id) if log.user_id else None,
+            "id": doc.id,
+            "user_id": user_id,
             "user_name": user.name if user else "Unknown User",
             "user_email": user.email if user else "unknown@neoface.io",
-            "method": "face" if log.confidence_score else "fingerprint",
-            "success": log.authentication_result,
-            "confidence": log.confidence_score,
-            "latency": 250, # ms
-            "ip_address": log.ip_address or "127.0.0.1",
-            "failure_reason": log.failure_reason,
-            "timestamp": log.timestamp.isoformat()
+            "method": "face" if log_data.get("confidence_score") else "fingerprint",
+            "success": log_data.get("authentication_result"),
+            "confidence": log_data.get("confidence_score"),
+            "latency": 250,
+            "ip_address": log_data.get("ip_address") or "127.0.0.1",
+            "failure_reason": log_data.get("failure_reason"),
+            "timestamp": ts_dt.isoformat() if ts_dt else ""
         })
         
     return {
@@ -146,16 +175,21 @@ async def ws_auth_stream(websocket: WebSocket):
     WebSocket endpoint providing real-time authentication events feed.
     """
     await websocket.accept()
-    db = AsyncSessionLocal()
+    db = _get_firestore_client()
     try:
         # Send initial success status connection
         await websocket.send_json({"type": "connection", "status": "connected"})
         
         while True:
-            # Let's check for new authentications or stream generated activity events
-            # Fetch a random user to generate a live authentication log event
-            users_res = await db.execute(select(User).limit(10))
-            users = users_res.scalars().all()
+            users_docs = await db.collection("users").limit(10).get()
+            users = []
+            for doc in users_docs:
+                data = doc.to_dict()
+                users.append(User(
+                    id=uuid.UUID(doc.id),
+                    name=data.get("name"),
+                    email=data.get("email"),
+                ))
             
             if users:
                 user = random.choice(users)
@@ -180,12 +214,9 @@ async def ws_auth_stream(websocket: WebSocket):
                 }
                 await websocket.send_json(event)
                 
-            await asyncio.sleep(random.uniform(2.5, 6.0)) # tick every few seconds
+            await asyncio.sleep(random.uniform(2.5, 6.0))
             
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        # Log websocket crash
         pass
-    finally:
-        await db.close()

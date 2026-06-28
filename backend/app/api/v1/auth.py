@@ -164,19 +164,14 @@ async def get_current_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
-
-    # Resolve organization role
-    from app.models.org_membership import OrgMembership
-    from sqlalchemy import select
+    # Resolve organization role using Firestore
     org_role = None
     try:
-        stmt = select(OrgMembership).where(OrgMembership.user_id == user.id).limit(1)
-        res = await db.execute(stmt)
-        membership = res.scalar_one_or_none()
-        if membership:
-            org_role = membership.role
+        m_docs = await db.collection("org_memberships").where("user_id", "==", str(user.id)).limit(1).get()
+        if m_docs:
+            org_role = m_docs[0].to_dict().get("role")
     except Exception as exc:
-        logger.error("get_current_user: failed to load org_role", error=str(exc))
+        logger.error("get_current_user: failed to load org_role from Firestore", error=str(exc))
 
     response = UserResponse.model_validate(user)
     response.org_role = org_role
@@ -257,24 +252,17 @@ async def google_sign_in(
     # Find existing user or auto-create one
     user = await user_repo.get_by_email(firebase_payload.email)
     if not user:
-        # Auto-register: Google accounts don't have passwords
-        user = User(
+        user = await user_repo.create_biometric_user(
             name=firebase_payload.name or firebase_payload.email.split("@")[0],
-            email=firebase_payload.email.lower(),
-            hashed_password=None,  # No password — Google is the identity provider
-            role="user",
-            is_active=True,
-            is_enrolled=False,
+            email=firebase_payload.email,
         )
-        db.add(user)
-        await db.flush()
-        await db.refresh(user)
-        await db.commit()
-        logger.info(
-            "New user auto-registered via Google Auth",
-            user_id=str(user.id),
-            email=user.email,
-        )
+        # Link Google users to default organization
+        from app.repositories.organization_repository import OrganizationRepository
+        org_repo = OrganizationRepository(db)
+        default_org = await org_repo.get_default()
+        if default_org:
+            await org_repo.add_member(default_org.id, user.id, role="member")
+            logger.info("New Google user added to default organization as member")
     else:
         if not user.is_active:
             raise HTTPException(

@@ -1,26 +1,25 @@
 """
-NeoFace AaaS — Audit Event Repository
+NeoFace AaaS — Audit Event Repository using Firebase Firestore.
 """
 
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from google.cloud.firestore import AsyncClient
 
 from app.models.audit_event import AuditEvent
 
 
 class AuditEventRepository:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncClient) -> None:
         self.db = db
 
     async def emit(
         self,
-        org_id: uuid.UUID,
+        org_id: uuid.UUID | str,
         event_type: str,
         app_id: uuid.UUID | None = None,
         actor_id: uuid.UUID | None = None,
@@ -29,23 +28,34 @@ class AuditEventRepository:
         metadata: dict[str, Any] | None = None,
         ip_address: str | None = None,
     ) -> AuditEvent:
+        eid = uuid.uuid4()
+        now = datetime.now(timezone.utc)
         event = AuditEvent(
-            organization_id=org_id,
-            application_id=app_id,
-            actor_id=actor_id,
+            id=eid,
+            organization_id=uuid.UUID(str(org_id)),
+            application_id=uuid.UUID(str(app_id)) if app_id else None,
+            actor_id=uuid.UUID(str(actor_id)) if actor_id else None,
             event_type=event_type,
             entity_type=entity_type,
             entity_id=entity_id,
-            metadata_=metadata,
+            metadata_=metadata or {},
             ip_address=ip_address,
+            created_at=now,
         )
-        self.db.add(event)
-        await self.db.flush()
+        doc_ref = self.db.collection("audit_events").document(str(eid))
+        data = event.to_dict()
+        data.pop("id", None)
+        data["organization_id"] = str(org_id)
+        if app_id:
+            data["application_id"] = str(app_id)
+        if actor_id:
+            data["actor_id"] = str(actor_id)
+        await doc_ref.set(data)
         return event
 
     async def list_by_org(
         self,
-        org_id: uuid.UUID,
+        org_id: uuid.UUID | str,
         page: int = 1,
         page_size: int = 50,
         app_id: uuid.UUID | None = None,
@@ -54,36 +64,78 @@ class AuditEventRepository:
         from_date: datetime | None = None,
         to_date: datetime | None = None,
     ) -> tuple[list[AuditEvent], int]:
-        q = select(AuditEvent).where(AuditEvent.organization_id == org_id)
+        col = self.db.collection("audit_events")
+        query = col.where("organization_id", "==", str(org_id))
+        
         if app_id:
-            q = q.where(AuditEvent.application_id == app_id)
+            query = query.where("application_id", "==", str(app_id))
         if event_type:
-            q = q.where(AuditEvent.event_type == event_type)
+            query = query.where("event_type", "==", event_type)
         if actor_id:
-            q = q.where(AuditEvent.actor_id == actor_id)
+            query = query.where("actor_id", "==", str(actor_id))
         if from_date:
-            q = q.where(AuditEvent.created_at >= from_date)
+            query = query.where("created_at", ">=", from_date)
         if to_date:
-            q = q.where(AuditEvent.created_at <= to_date)
+            query = query.where("created_at", "<=", to_date)
 
-        count_q = select(func.count()).select_from(q.subquery())
-        total = (await self.db.execute(count_q)).scalar_one()
-        q = q.order_by(AuditEvent.created_at.desc())
-        q = q.offset((page - 1) * page_size).limit(page_size)
-        events = (await self.db.execute(q)).scalars().all()
-        return list(events), total
+        count_res = await query.count().get()
+        total = count_res[0].value
+
+        offset = (page - 1) * page_size
+        query = query.order_by("created_at", direction="DESCENDING").offset(offset).limit(page_size)
+        docs = await query.get()
+
+        events = []
+        for doc in docs:
+            data = doc.to_dict()
+            oid = uuid.UUID(data.get("organization_id")) if data.get("organization_id") else None
+            aid = uuid.UUID(data.get("application_id")) if data.get("application_id") else None
+            acid = uuid.UUID(data.get("actor_id")) if data.get("actor_id") else None
+            events.append(AuditEvent(
+                id=uuid.UUID(doc.id),
+                organization_id=oid,
+                application_id=aid,
+                actor_id=acid,
+                event_type=data.get("event_type"),
+                entity_type=data.get("entity_type"),
+                entity_id=data.get("entity_id"),
+                metadata_=data.get("metadata_"),
+                ip_address=data.get("ip_address"),
+                created_at=data.get("created_at"),
+            ))
+        return events, total
 
     async def list_all_for_export(
         self,
-        org_id: uuid.UUID,
+        org_id: uuid.UUID | str,
         from_date: datetime | None = None,
         to_date: datetime | None = None,
     ) -> list[AuditEvent]:
-        q = select(AuditEvent).where(AuditEvent.organization_id == org_id)
+        col = self.db.collection("audit_events")
+        query = col.where("organization_id", "==", str(org_id))
         if from_date:
-            q = q.where(AuditEvent.created_at >= from_date)
+            query = query.where("created_at", ">=", from_date)
         if to_date:
-            q = q.where(AuditEvent.created_at <= to_date)
-        q = q.order_by(AuditEvent.created_at.asc())
-        events = (await self.db.execute(q)).scalars().all()
-        return list(events)
+            query = query.where("created_at", "<=", to_date)
+        
+        query = query.order_by("created_at", direction="ASCENDING")
+        docs = await query.get()
+        events = []
+        for doc in docs:
+            data = doc.to_dict()
+            oid = uuid.UUID(data.get("organization_id")) if data.get("organization_id") else None
+            aid = uuid.UUID(data.get("application_id")) if data.get("application_id") else None
+            acid = uuid.UUID(data.get("actor_id")) if data.get("actor_id") else None
+            events.append(AuditEvent(
+                id=uuid.UUID(doc.id),
+                organization_id=oid,
+                application_id=aid,
+                actor_id=acid,
+                event_type=data.get("event_type"),
+                entity_type=data.get("entity_type"),
+                entity_id=data.get("entity_id"),
+                metadata_=data.get("metadata_"),
+                ip_address=data.get("ip_address"),
+                created_at=data.get("created_at"),
+            ))
+        return events

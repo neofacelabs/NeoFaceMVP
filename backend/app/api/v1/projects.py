@@ -33,23 +33,29 @@ async def list_projects(
     ctx: OrgContext = Depends(require_scope("project:read")),
     db: AsyncSession = Depends(get_db),
 ) -> PagedResponse[ApplicationResponse]:
-    from sqlalchemy import select, func
-    from app.models.application import Application
+    from app.repositories.organization_repository import OrganizationRepository
+    repo = OrganizationRepository(db)
     
-    stmt = select(Application).where(Application.organization_id == ctx.org_id)
-    if site_id:
-        stmt = stmt.where(Application.site_id == site_id)
-    if search:
-        stmt = stmt.where(Application.name.ilike(f"%{search}%"))
-
-    count_stmt = select(func.count()).select_from(stmt.subquery())
-    total = (await db.execute(count_stmt)).scalar_one()
-
-    stmt = stmt.order_by(Application.created_at.desc())
-    stmt = stmt.offset((page - 1) * page_size).limit(page_size)
-    apps = (await db.execute(stmt)).scalars().all()
+    apps, total = await repo.list_applications(ctx.org_id, page=page, page_size=page_size)
     
-    items = [ApplicationResponse.model_validate(a) for a in apps]
+    # Map from domain models to ApplicationResponse
+    items = []
+    for a in apps:
+        items.append(ApplicationResponse(
+            id=a.id,
+            organization_id=a.organization_id,
+            site_id=a.site_id,
+            name=a.name,
+            environment=a.environment,
+            status=a.status,
+            description=a.description,
+            allowed_origins=a.allowed_origins,
+            allowed_domains=a.allowed_domains,
+            webhook_url=a.webhook_url,
+            rate_limit=a.rate_limit,
+            created_at=a.created_at,
+            updated_at=a.updated_at,
+        ))
     return PagedResponse(total=total, page=page, page_size=page_size, items=items)
 
 

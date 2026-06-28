@@ -275,14 +275,51 @@ async def get_enrollment_status(
     from app.repositories.embedding_repository import EmbeddingRepository
     emb_repo = EmbeddingRepository(db)
     face_count = await emb_repo.count_by_user(current_user.user_uuid)
-
+    from datetime import datetime, timezone
     fp_enrolled = fp_count > 0 or webauthn_count > 0
+
+    # Fetch face enrolled_at timestamp
+    face_enrolled_at = None
+    if face_count > 0:
+        latest_face = await emb_repo.get_latest_by_user(current_user.user_uuid)
+        if latest_face and latest_face.created_at:
+            if isinstance(latest_face.created_at, datetime):
+                face_enrolled_at = latest_face.created_at.isoformat()
+            else:
+                face_enrolled_at = str(latest_face.created_at)
+
+    # Fetch fingerprint enrolled_at timestamp
+    fp_enrolled_at = None
+    if fp_enrolled:
+        # Check standard fingerprint repo first
+        fp_records = await fp_repo.get_by_user(current_user.user_uuid)
+        if fp_records:
+            fp_records.sort(key=lambda x: x.created_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+            latest_fp = fp_records[0]
+            if latest_fp.created_at:
+                if isinstance(latest_fp.created_at, datetime):
+                    fp_enrolled_at = latest_fp.created_at.isoformat()
+                else:
+                    fp_enrolled_at = str(latest_fp.created_at)
+        
+        # If no standard fingerprint, check WebAuthn credentials
+        if not fp_enrolled_at:
+            all_creds = await webauthn_repo.list_by_user(current_user.user_uuid)
+            if all_creds:
+                all_creds.sort(key=lambda x: x.enrolled_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+                latest_cred = all_creds[0]
+                if latest_cred.enrolled_at:
+                    if isinstance(latest_cred.enrolled_at, datetime):
+                        fp_enrolled_at = latest_cred.enrolled_at.isoformat()
+                    else:
+                        fp_enrolled_at = str(latest_cred.enrolled_at)
 
     return {
         "user_id": str(current_user.user_uuid),
         "face": {
             "enrolled": face_count > 0,
             "embedding_count": face_count,
+            "enrolled_at": face_enrolled_at,
         },
         "iris": {
             "enrolled": iris_count > 0,
@@ -291,12 +328,11 @@ async def get_enrollment_status(
         "fingerprint": {
             "enrolled": fp_enrolled,
             "template_count": fp_count + webauthn_count,
+            "enrolled_at": fp_enrolled_at,
         },
         "modalities_enrolled": sum([face_count > 0, fp_enrolled]),
         "max_security": face_count > 0 and fp_enrolled,
     }
-
-
 # ── Delete Biometrics ──────────────────────────────────────────────────────────
 
 @router.delete(

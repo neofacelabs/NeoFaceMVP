@@ -1,20 +1,17 @@
 """
-NeoFace AaaS — Model Registry Service
-Seeds and manages ModelVersion records.
-Derives metrics from config where real evaluation data is unavailable.
+NeoFace AaaS — Model Registry Service using Firebase Firestore.
 """
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from google.cloud.firestore import AsyncClient
 
 from app.models.model_version import ModelVersion
 from app.schemas.aaas import ModelVersionResponse
 
-# ── Seed data — real metrics from internal eval; update via eval pipeline ──────
 _SEED_MODELS = [
     {
         "model_name": "face_recognition",
@@ -65,35 +62,66 @@ _SEED_MODELS = [
 
 
 class ModelRegistryService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncClient) -> None:
         self.db = db
 
     async def seed_if_empty(self) -> None:
-        """Seed initial model versions if the table is empty."""
-        result = await self.db.execute(select(ModelVersion).limit(1))
-        if result.scalar_one_or_none() is not None:
+        """Seed initial model versions if the collection is empty."""
+        col = self.db.collection("model_versions")
+        res = await col.limit(1).get()
+        if len(res) > 0:
             return
 
         for model_data in _SEED_MODELS:
-            mv = ModelVersion(**model_data)
-            self.db.add(mv)
-        await self.db.flush()
+            mid = uuid.uuid4()
+            mv = ModelVersion(
+                id=mid,
+                deployed_at=datetime.now(timezone.utc),
+                **model_data
+            )
+            data = mv.to_dict()
+            data.pop("id", None)
+            await col.document(str(mid)).set(data)
 
     async def list_all(self) -> list[ModelVersionResponse]:
-        result = await self.db.execute(
-            select(ModelVersion).order_by(
-                ModelVersion.model_name.asc(),
-                ModelVersion.deployed_at.desc(),
-            )
-        )
-        versions = result.scalars().all()
+        col = self.db.collection("model_versions")
+        docs = await col.get()
+        versions = []
+        for doc in docs:
+            data = doc.to_dict()
+            versions.append(ModelVersion(
+                id=uuid.UUID(doc.id),
+                model_name=data.get("model_name"),
+                version=data.get("version"),
+                accuracy=data.get("accuracy"),
+                far=data.get("far"),
+                frr=data.get("frr"),
+                latency_ms=data.get("latency_ms"),
+                status=data.get("status", "active"),
+                deployed_at=data.get("deployed_at"),
+            ))
+        # Sort by model_name asc, deployed_at desc
+        versions.sort(key=lambda x: (x.model_name or "", x.deployed_at or datetime.min), reverse=True)
+        # But name should be asc, so we need custom sorting:
+        versions.sort(key=lambda x: (x.model_name or ""))
         return [ModelVersionResponse.model_validate(v) for v in versions]
 
     async def get_by_id(self, model_id) -> ModelVersionResponse | None:
-        result = await self.db.execute(
-            select(ModelVersion).where(ModelVersion.id == model_id)
-        )
-        mv = result.scalar_one_or_none()
-        if not mv:
+        doc_ref = self.db.collection("model_versions").document(str(model_id))
+        doc = await doc_ref.get()
+        if not doc.exists:
             return None
-        return ModelVersionResponse.model_validate(mv)
+        data = doc.to_dict()
+        assert data is not None
+        v = ModelVersion(
+            id=uuid.UUID(doc.id),
+            model_name=data.get("model_name"),
+            version=data.get("version"),
+            accuracy=data.get("accuracy"),
+            far=data.get("far"),
+            frr=data.get("frr"),
+            latency_ms=data.get("latency_ms"),
+            status=data.get("status", "active"),
+            deployed_at=data.get("deployed_at"),
+        )
+        return ModelVersionResponse.model_validate(v)

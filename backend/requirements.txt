@@ -12,10 +12,9 @@ httptools==0.6.4
 python-multipart==0.0.12
 
 # ── Database ──────────────────────────────────────────────────────────────────
+# Using Firebase Firestore via firebase-admin / google-cloud-firestore
 sqlalchemy==2.0.36
-asyncpg==0.30.0
-psycopg2-binary==2.9.10
-alembic==1.14.0
+
 
 # ── Validation & Settings ─────────────────────────────────────────────────────
 pydantic==2.10.3
@@ -55,8 +54,9 @@ httpx==0.27.2
 # ── AWS S3 (optional, for production storage) ────────────────────────────────
 boto3==1.35.80
 
-# ── Supabase (storage + auth integration) ─────────────────────────────────────
-supabase==2.10.0
+# ── Cloudflare R2 / S3 ────────────────────────────────────────────────────────
+# Using boto3 for Cloudflare R2 storage
+
 
 # ── Trust Engine v2 — ML Models ───────────────────────────────────────────────
 torch==2.5.1                   # PyTorch CPU — deepfake & depth models

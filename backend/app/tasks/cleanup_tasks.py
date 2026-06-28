@@ -1,11 +1,5 @@
 """
-NeoFace Trust Engine — Cleanup Background Tasks
-Periodic maintenance tasks for data hygiene and performance.
-
-Tasks:
-  cleanup_expired_challenges — Remove expired challenge tokens from DB
-  archive_old_audit_logs     — Move old log records to cold storage / prune
-  cleanup_terminated_sessions — Remove terminated sessions older than 30 days
+NeoFace Trust Engine — Cleanup Background Tasks using Firebase Firestore.
 """
 
 from __future__ import annotations
@@ -21,14 +15,9 @@ logger = get_task_logger(__name__)
 
 # Retention periods
 _CHALLENGE_LOG_RETENTION_DAYS    = 30
-_LIVENESS_LOG_RETENTION_DAYS     = 90
-_DEEPFAKE_LOG_RETENTION_DAYS     = 90
-_EMOTION_LOG_RETENTION_DAYS      = 30
-_HEADPOSE_LOG_RETENTION_DAYS     = 30
 _DEVICE_LOG_RETENTION_DAYS       = 90
 _BEHAVIOR_EVENT_RETENTION_DAYS   = 180
 _TERMINATED_SESSION_RETENTION_DAYS = 30
-_RISK_SCORE_RETENTION_DAYS       = 365
 
 
 @celery_app.task(
@@ -46,17 +35,18 @@ def cleanup_expired_challenges(self) -> dict:
 
 
 async def _cleanup_challenges_async() -> dict:
-    from sqlalchemy import delete, func
-    from app.core.database import AsyncSessionLocal
-    from app.models.trust_engine import ChallengeLog
+    from app.core.database import _get_firestore_client
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=_CHALLENGE_LOG_RETENTION_DAYS)
+    db = _get_firestore_client()
 
-    async with AsyncSessionLocal() as db:
-        stmt = delete(ChallengeLog).where(ChallengeLog.created_at < cutoff)
-        result = await db.execute(stmt)
-        await db.commit()
-        deleted = result.rowcount
+    col = db.collection("challenge_logs").where("created_at", "<", cutoff)
+    docs = await col.get()
+    
+    deleted = 0
+    for doc in docs:
+        await doc.reference.delete()
+        deleted += 1
 
     logger.info("cleanup.challenges: purged old records (count=%d, cutoff=%s)", deleted, cutoff.isoformat())
     return {"deleted_challenge_logs": deleted}
@@ -70,7 +60,6 @@ async def _cleanup_challenges_async() -> dict:
 def archive_old_audit_logs(self) -> dict:
     """
     Prune old Trust Engine log records beyond retention windows.
-    Does NOT delete risk_scores or behavior_profiles (important audit data).
     """
     try:
         return asyncio.run(_archive_logs_async())
@@ -80,39 +69,41 @@ def archive_old_audit_logs(self) -> dict:
 
 
 async def _archive_logs_async() -> dict:
-    from sqlalchemy import delete
-    from app.core.database import AsyncSessionLocal
-    from app.models.trust_engine import (
-        DeviceTrustLog, BehaviorEvent, ContinuousSession, ChallengeLog,
-    )
+    from app.core.database import _get_firestore_client
 
     now = datetime.now(timezone.utc)
     totals: dict[str, int] = {}
+    db = _get_firestore_client()
 
-    async with AsyncSessionLocal() as db:
+    # Device trust logs
+    cutoff = now - timedelta(days=_DEVICE_LOG_RETENTION_DAYS)
+    docs = await db.collection("device_trust_logs").where("created_at", "<", cutoff).get()
+    deleted = 0
+    for doc in docs:
+        await doc.reference.delete()
+        deleted += 1
+    totals["device_trust_logs"] = deleted
 
+    # Behavior events
+    cutoff = now - timedelta(days=_BEHAVIOR_EVENT_RETENTION_DAYS)
+    docs = await db.collection("behavior_events").where("created_at", "<", cutoff).get()
+    deleted = 0
+    for doc in docs:
+        await doc.reference.delete()
+        deleted += 1
+    totals["behavior_events"] = deleted
 
-        # Device trust logs
-        cutoff = now - timedelta(days=_DEVICE_LOG_RETENTION_DAYS)
-        r = await db.execute(delete(DeviceTrustLog).where(DeviceTrustLog.created_at < cutoff))
-        totals["device_trust_logs"] = r.rowcount
-
-        # Behavior events (keep profiles, prune raw events)
-        cutoff = now - timedelta(days=_BEHAVIOR_EVENT_RETENTION_DAYS)
-        r = await db.execute(delete(BehaviorEvent).where(BehaviorEvent.created_at < cutoff))
-        totals["behavior_events"] = r.rowcount
-
-        # Terminated continuous sessions
-        cutoff = now - timedelta(days=_TERMINATED_SESSION_RETENTION_DAYS)
-        r = await db.execute(
-            delete(ContinuousSession).where(
-                ContinuousSession.status == "terminated",
-                ContinuousSession.terminated_at < cutoff,
-            )
-        )
-        totals["continuous_sessions"] = r.rowcount
-
-        await db.commit()
+    # Terminated continuous sessions
+    cutoff = now - timedelta(days=_TERMINATED_SESSION_RETENTION_DAYS)
+    docs = await (db.collection("continuous_sessions")
+                  .where("status", "==", "terminated")
+                  .where("terminated_at", "<", cutoff)
+                  .get())
+    deleted = 0
+    for doc in docs:
+        await doc.reference.delete()
+        deleted += 1
+    totals["continuous_sessions"] = deleted
 
     logger.info("cleanup.archive: completed (totals=%s)", str(totals))
     return totals
@@ -123,7 +114,7 @@ async def _archive_logs_async() -> dict:
     bind=True,
 )
 def cleanup_terminated_sessions(self) -> dict:
-    """Remove old terminated sessions (called separately if needed)."""
+    """Remove old terminated sessions."""
     try:
         return asyncio.run(_cleanup_sessions_async())
     except Exception as exc:
@@ -131,18 +122,18 @@ def cleanup_terminated_sessions(self) -> dict:
 
 
 async def _cleanup_sessions_async() -> dict:
-    from sqlalchemy import delete
-    from app.core.database import AsyncSessionLocal
-    from app.models.trust_engine import ContinuousSession
+    from app.core.database import _get_firestore_client
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=_TERMINATED_SESSION_RETENTION_DAYS)
+    db = _get_firestore_client()
 
-    async with AsyncSessionLocal() as db:
-        stmt = delete(ContinuousSession).where(
-            ContinuousSession.status == "terminated",
-            ContinuousSession.terminated_at < cutoff,
-        )
-        result = await db.execute(stmt)
-        await db.commit()
+    docs = await (db.collection("continuous_sessions")
+                  .where("status", "==", "terminated")
+                  .where("terminated_at", "<", cutoff)
+                  .get())
+    deleted = 0
+    for doc in docs:
+        await doc.reference.delete()
+        deleted += 1
 
-    return {"deleted_sessions": result.rowcount}
+    return {"deleted_sessions": deleted}
