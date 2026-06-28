@@ -52,8 +52,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = (
         "postgresql+asyncpg://neoface:neoface_pass@localhost:5432/neoface_db"
     )
-    DATABASE_POOL_SIZE: int = 10
-    DATABASE_MAX_OVERFLOW: int = 20
+    DATABASE_POOL_SIZE: int = 5
+    DATABASE_MAX_OVERFLOW: int = 5
 
     # ─── Redis ────────────────────────────────────────────────────────────────
     REDIS_URL: str = "redis://localhost:6379/0"

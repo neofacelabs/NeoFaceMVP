@@ -37,6 +37,26 @@ def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     return _orig_getaddrinfo(host, port, family, type, proto, flags)
 _socket.getaddrinfo = _force_ipv4_getaddrinfo
 
+# ── Force single-threaded ONNX Runtime execution ──────────────────────────────
+# By default, ONNX Runtime spawns a thread pool matched to the host's CPU core count.
+# On multi-core container nodes (e.g. Render, AWS, GCP), this leads to massive thread
+# explosion (dozens of threads per session), triggering OOM kills and slow performance.
+# Patching the InferenceSession constructor guarantees a minimal memory footprint.
+try:
+    import onnxruntime as _ort
+    _orig_InferenceSession = _ort.InferenceSession
+    class _PatchedInferenceSession(_orig_InferenceSession):
+        def __init__(self, path_or_bytes, sess_options=None, *args, **kwargs):
+            if sess_options is None:
+                sess_options = _ort.SessionOptions()
+            sess_options.intra_op_num_threads = 1
+            sess_options.inter_op_num_threads = 1
+            sess_options.execution_mode = _ort.ExecutionMode.ORT_SEQUENTIAL
+            super().__init__(path_or_bytes, sess_options, *args, **kwargs)
+    _ort.InferenceSession = _PatchedInferenceSession
+except Exception:
+    pass
+
 import time
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator

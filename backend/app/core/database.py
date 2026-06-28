@@ -82,6 +82,12 @@ def _build_engine() -> AsyncEngine:
     db_url = db_url.replace("?sslmode=verify-full", "").replace("&sslmode=verify-full", "")
     db_url = db_url.replace("?sslmode=disable", "").replace("&sslmode=disable", "")
 
+    # Force use of port 6543 (Transaction Mode) if pointing to Supabase Pooler on 5432.
+    # This prevents EMAXCONNSESSION (max clients reached) errors on concurrent requests.
+    if "pooler.supabase.com" in db_url and ":5432/" in db_url:
+        db_url = db_url.replace(":5432/", ":6543/")
+        logger.info("database: Detected Supabase pooler on port 5432. Rewrote URL to port 6543 (Transaction Mode) to optimize connection reuse.")
+
     is_supabase = "supabase.co" in db_url or "supabase.com" in db_url
 
     connect_args: dict[str, Any] = {

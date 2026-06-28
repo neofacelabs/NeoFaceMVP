@@ -121,6 +121,9 @@ export function TrustTerminal() {
   const [cameraReady, setCameraReady] = useState(false);
   const [scanLine, setScanLine] = useState(false);
 
+  const [fpOptions, setFpOptions] = useState<any>(null);
+  const [fpLoading, setFpLoading] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -166,14 +169,29 @@ export function TrustTerminal() {
     setCameraReady(false);
   }, []);
 
+  const prefetchFingerprintOptions = useCallback(async () => {
+    setFpOptions(null);
+    setFpLoading(true);
+    try {
+      const res = await terminalApi.fingerprintBegin();
+      setFpOptions(res.data);
+    } catch (err) {
+      console.error("Failed to prefetch fingerprint options:", err);
+      toast.error("Failed to initialize fingerprint scanner.");
+    } finally {
+      setFpLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (mode === "face") {
       startCamera();
     } else {
       stopCamera();
+      prefetchFingerprintOptions();
     }
     return () => stopCamera();
-  }, [mode, startCamera, stopCamera]);
+  }, [mode, startCamera, stopCamera, prefetchFingerprintOptions]);
 
   // ── Scan countdown ─────────────────────────────────────────────────────────
 
@@ -232,18 +250,22 @@ export function TrustTerminal() {
   const identifyByFingerprint = async () => {
     setScanState("processing");
     try {
-      const res = await terminalApi.fingerprintBegin();
-      const options = res.data;
-
-      options.challenge = base64urlToBytes(options.challenge);
-      if (options.allowCredentials) {
-        options.allowCredentials = options.allowCredentials.map((c: any) => ({
-          ...c,
-          id: base64urlToBytes(c.id),
-        }));
+      let options = fpOptions;
+      if (!options) {
+        const res = await terminalApi.fingerprintBegin();
+        options = res.data;
       }
 
-      const assertion = (await navigator.credentials.get({ publicKey: options })) as any;
+      const processedOptions = {
+        ...options,
+        challenge: base64urlToBytes(options.challenge),
+        allowCredentials: options.allowCredentials ? options.allowCredentials.map((c: any) => ({
+          ...c,
+          id: base64urlToBytes(c.id),
+        })) : undefined
+      };
+
+      const assertion = (await navigator.credentials.get({ publicKey: processedOptions })) as any;
       if (!assertion) throw new Error("No assertion returned by authenticator");
 
       const body = {
@@ -265,11 +287,13 @@ export function TrustTerminal() {
       // terminal/complete returns {identified, confidence, message, user}
       setResult(data as IdentityResult);
       setScanState(data.identified ? "match" : "no-match");
+      setFpOptions(null);
     } catch (err: any) {
       console.error("Fingerprint identification failed:", err);
       const msg = err.response?.data?.detail || err.message || "Fingerprint scan failed or was cancelled.";
       if (err.name !== "NotAllowedError") toast.error(msg);
       setScanState("error");
+      setFpOptions(null);
     }
   };
 
@@ -279,7 +303,11 @@ export function TrustTerminal() {
     setResult(null);
     setCountdown(null);
     setScanLine(false);
-    if (mode === "face") startCamera();
+    if (mode === "face") {
+      startCamera();
+    } else {
+      prefetchFingerprintOptions();
+    }
   };
 
   const isProcessing = scanState === "scanning" || scanState === "processing";
@@ -495,7 +523,7 @@ export function TrustTerminal() {
                   <Button
                     size="sm"
                     onClick={mode === "face" ? startCountdown : identifyByFingerprint}
-                    disabled={mode === "face" && !cameraReady}
+                    disabled={(mode === "face" && !cameraReady) || (mode === "fingerprint" && fpLoading)}
                     className={cn(
                       "h-7 gap-1.5 text-[11px] font-semibold",
                       mode === "face"
@@ -503,10 +531,13 @@ export function TrustTerminal() {
                         : "bg-[#0EA5E9] hover:bg-[#0284c7] text-white"
                     )}
                   >
-                    {mode === "face"
-                      ? <><ScanFace className="h-3.5 w-3.5" /> Capture & Identify</>
-                      : <><Fingerprint className="h-3.5 w-3.5" /> Scan Fingerprint</>
-                    }
+                    {mode === "face" ? (
+                      <><ScanFace className="h-3.5 w-3.5" /> Capture & Identify</>
+                    ) : fpLoading ? (
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Initializing...</>
+                    ) : (
+                      <><Fingerprint className="h-3.5 w-3.5" /> Scan Fingerprint</>
+                    )}
                   </Button>
                 )}
               </div>

@@ -87,6 +87,26 @@ export default function MemberBiometricsPage() {
   // Fingerprint Enrollment States
   const [showFpModal, setShowFpModal] = useState(false);
   const [fpSubmitting, setFpSubmitting] = useState(false);
+  const [prefetchedFpOptions, setPrefetchedFpOptions] = useState<any>(null);
+  const [prefetchedFpLoading, setPrefetchedFpLoading] = useState(false);
+
+  useEffect(() => {
+    if (showFpModal) {
+      setPrefetchedFpOptions(null);
+      setPrefetchedFpLoading(true);
+      webAuthnApi.registerBegin()
+        .then((res) => {
+          setPrefetchedFpOptions(res.data);
+        })
+        .catch((err) => {
+          console.error("Failed to prefetch WebAuthn options:", err);
+          toast.error("Failed to initialize fingerprint scanner.");
+        })
+        .finally(() => {
+          setPrefetchedFpLoading(false);
+        });
+    }
+  }, [showFpModal]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -290,9 +310,11 @@ export default function MemberBiometricsPage() {
     try {
       setFpSubmitting(true);
       
-      // Step 1: Begin registration (fetch challenge options)
-      const res = await webAuthnApi.registerBegin();
-      const options = res.data;
+      let options = prefetchedFpOptions;
+      if (!options) {
+        const res = await webAuthnApi.registerBegin();
+        options = res.data;
+      }
 
       // Translate base64url challenge and user id into Uint8Arrays
       options.challenge = base64urlToBytes(options.challenge);
@@ -338,6 +360,7 @@ export default function MemberBiometricsPage() {
       toast.error(msg);
     } finally {
       setFpSubmitting(false);
+      setPrefetchedFpOptions(null);
     }
   };
 
@@ -882,13 +905,17 @@ export default function MemberBiometricsPage() {
                   <Button
                     type="button"
                     onClick={handleFingerprintRegister}
-                    disabled={fpSubmitting}
+                    disabled={fpSubmitting || prefetchedFpLoading}
                     size="sm"
                     className="h-8 min-w-[140px] gap-1.5 font-semibold text-xs bg-[#0EA5E9] hover:bg-[#0284c7] text-white"
                   >
                     {fpSubmitting ? (
                       <>
                         <Loader2 className="h-3.5 w-3.5 animate-spin" /> Scanning...
+                      </>
+                    ) : prefetchedFpLoading ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Initializing...
                       </>
                     ) : (
                       <>
