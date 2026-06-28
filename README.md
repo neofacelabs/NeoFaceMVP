@@ -119,7 +119,7 @@ neoface/
 
 ## 🚀 Quick Start
 
-For detailed setup instructions, please read [SETUP.md](file:///Users/divyebhatnagar/Desktop/NeoFace/SETUP.md).
+For detailed setup instructions, please read [SETUP.md](SETUP.md).
 
 ### 1. Configure Envs
 ```bash

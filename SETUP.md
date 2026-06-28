@@ -34,8 +34,8 @@ Install these before starting:
 ## Step 1 — Clone the Repository
 
 ```bash
-git clone https://github.com/DivyeBhatnagar/NeoFace.git
-cd NeoFace
+git clone https://github.com/neofacelabs/NeoFaceMVP.git
+cd NeoFaceMVP
 ```
 
 ---
@@ -227,8 +227,8 @@ sudo apt update && sudo apt install -y make python3 python3-pip python3-venv nod
 
 #### 4. Clone, Configure, and Start
 ```bash
-git clone https://github.com/DivyeBhatnagar/NeoFace.git
-cd NeoFace
+git clone https://github.com/neofacelabs/NeoFaceMVP.git
+cd NeoFaceMVP
 make setup
 make models
 make start

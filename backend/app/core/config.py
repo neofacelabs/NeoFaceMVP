@@ -162,6 +162,8 @@ class Settings(BaseSettings):
         "https://neofacelabs.vercel.app",
         "https://neoface.vercel.app",
         "https://neoface-git-main-divyebhatnagar.vercel.app",
+        "https://neofacemvp-git-main-neofacelabs.vercel.app",
+        "https://neoface-git-main-neofacelabs.vercel.app",
     ]
     # Additional origins can be added at runtime via this env var:
     # ALLOWED_ORIGINS='["https://custom-domain.com"]'
