@@ -151,14 +151,13 @@ try {
     # ─────────────────────────────────────────────────────────────────────────
     Write-Step "🧹 3. Stopping any stale containers..."
     docker compose stop 2>$null | Out-Null
-    $containers = @("neoface_api", "neoface_worker", "neoface_beat", "neoface_flower", "neoface_postgres", "neoface_redis")
+    $containers = @("neoface_api", "neoface_worker", "neoface_beat", "neoface_flower", "neoface_redis")
     foreach ($name in $containers) {
         $inspect = docker inspect $name 2>$null
         if ($inspect) {
             docker rm -f $name 2>$null | Out-Null
         }
     }
-    Write-Info "Stale containers cleared."
 
     # ─────────────────────────────────────────────────────────────────────────
     # STEP 4: START BACKEND DOCKER STACK

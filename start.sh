@@ -150,9 +150,8 @@ fi
 # STEP 3: STOP STALE CONTAINERS (without removing image/volumes)
 # ─────────────────────────────────────────────────────────────────────────────
 step "🧹 3. Stopping any stale containers..."
-# Use 'stop' + 'rm' instead of 'down --volumes' to preserve DB data between runs
 docker compose stop 2>/dev/null || true
-for name in neoface_api neoface_worker neoface_beat neoface_flower neoface_postgres neoface_redis; do
+for name in neoface_api neoface_worker neoface_beat neoface_flower neoface_redis; do
     if docker inspect "$name" &>/dev/null 2>&1; then
         docker rm -f "$name" 2>/dev/null || true
     fi

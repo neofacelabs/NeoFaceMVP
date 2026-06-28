@@ -4,6 +4,17 @@ This guide takes you from a fresh `git clone` to a fully running NeoFace stack i
 
 ---
 
+## Architecture & Technology Stack
+
+NeoFace is built on a modern, high-performance tech stack:
+* **Frontend**: Next.js 16 + React 19 (TypeScript) with TailwindCSS and Radix UI primitives. Deployed on **Vercel**.
+* **Backend API & Schedulers**: FastAPI (Python 3.12) and Celery running asynchronously. Deployed on **Render**.
+* **Database & Auth**: Firebase Firestore (NoSQL document store) and Firebase Authentication (Google OAuth bridge).
+* **Biometric Storage**: Cloudflare R2 / AWS S3 (private blob bucket).
+* **Caching & Message Broker**: Redis 7.2.
+
+---
+
 ## Prerequisites
 
 Install these before starting:
@@ -92,13 +103,13 @@ python3 backend/scripts/download_models.py --status
 
 1. **Deploy Rules**: Execute the firebase command to deploy the security configuration (`firestore.rules`):
    ```bash
-   firebase deploy --only firestore:rules
+   firebase deploy --only firestore:rules --project <your-firebase-project-id>
    ```
    Or copy the contents of `firestore.rules` directly into the Rules tab in your Firebase Console.
 
 2. **Deploy Composite Indexes**:
    ```bash
-   firebase deploy --only firestore:indexes
+   firebase deploy --only firestore:indexes --project <your-firebase-project-id>
    ```
    Or create the composite indexes listed in `firestore.indexes.json` manually in the Indexes tab in your Firebase Console.
 
