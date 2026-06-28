@@ -677,7 +677,7 @@ active → reauth_required (score < 70) → active (after successful reauth)
 - 8 GB RAM (AI models require significant memory)
 - Git
 
-> **New contributors:** See the detailed [SETUP.md](./SETUP.md) guide for step-by-step instructions.
+> 🪟 **Windows Users:** Detailed Native & WSL2 instructions are available in the [SETUP.md](./SETUP.md) guide.
 
 ### 1. Clone
 
@@ -688,20 +688,23 @@ cd NeoFace
 
 ### 2. Configure Environment
 
+**macOS / Linux / WSL2:**
 ```bash
-# Backend
 cp backend/.env.example backend/.env
-# Edit backend/.env — set JWT_SECRET, ADMIN_PASSWORD, and optionally DATABASE_URL
-
-# Frontend
 cp frontend/.env.example frontend/.env.local
-# Set NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 (already the default)
 ```
+
+**Windows Native (PowerShell):**
+```powershell
+Copy-Item backend/.env.example backend/.env
+Copy-Item frontend/.env.example frontend/.env.local
+```
+*Edit `backend/.env` to set `JWT_SECRET`, `ADMIN_PASSWORD`, and database credentials.*
 
 ### 3. Start NeoFace (Smart Startup)
 
+**macOS / Linux / WSL2:**
 ```bash
-# Quick way (recommended):
 make setup   # copies env files, installs frontend deps, shows model status
 make models  # download all ONNX models (~770 MB)
 make start   # start all services
@@ -712,29 +715,49 @@ python3 backend/scripts/download_models.py --all
 ./start.sh
 ```
 
-- Backend available at `http://localhost:8000/docs`
+**Windows Native (PowerShell):**
+```powershell
+# Download models
+cd backend
+python scripts/download_models.py --all
+cd ..
+
+# Run startup script
+PowerShell -ExecutionPolicy Bypass -File .\start.ps1
+```
+
+- Backend available at `http://localhost:8000/docs` (Swagger UI)
 - Frontend available at `http://localhost:3000`
-- Celery Flower available at `http://localhost:5555`
+- Celery Flower available at `http://localhost:5555` (admin / neoface_flower_pass)
 
 First startup takes ~3–5 minutes to build Docker and download InsightFace models. Subsequent runs are near-instant.
 
 ### 4. Run Database Migrations (First Run Only)
 
+**macOS / Linux / WSL2:**
 ```bash
 make migrate
 # OR:
 docker compose exec api alembic upgrade head
 ```
 
+**Windows Native (PowerShell - in a separate terminal window):**
+```powershell
+docker compose exec api alembic upgrade head
+```
+
 ### 5. Managing Storage
 
-As NeoFace uses large Docker images, we provide a cleanup utility to keep your Mac's storage free from dangling layers and unused containers:
+As NeoFace uses large Docker images, we provide a cleanup utility to keep your storage free from dangling layers and unused containers:
 
+**macOS / Linux / WSL2:**
 ```bash
 ./cleanup.sh          # Safe prune (dangling images & stopped containers)
 ./cleanup.sh --status # View current Docker disk usage
 ./cleanup.sh --deep   # Nuclear option (resets local DB and deletes all images)
 ```
+
+*(Windows users: See [SETUP.md](./SETUP.md) troubleshooting for WSL2 configuration and memory allocation.)*
 
 ### 6. Admin Credentials
 

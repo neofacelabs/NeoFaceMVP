@@ -139,6 +139,128 @@ Password: (whatever you set in backend/.env)
 
 ---
 
+## 🪟 Windows Local Setup Guide
+
+If you are on Windows, you have two options to run the NeoFace stack: **Option A: Native Windows (using PowerShell)** or **Option B: WSL2 (Windows Subsystem for Linux - Highly Recommended)**.
+
+### Option A — Native Windows Setup (PowerShell)
+
+Use this option to run everything natively on Windows without setting up a virtualized Linux subsystem.
+
+#### 1. Prerequisites
+Install the following Windows installers:
+* **Docker Desktop for Windows**: [Download Here](https://docs.docker.com/desktop/install/windows/). Ensure it is configured to use Linux containers (default).
+* **Node.js 18+ (LTS)**: [Download Here](https://nodejs.org/). Make sure the installer adds Node/NPM to your system `PATH`.
+* **Python 3.12+**: [Download Here](https://www.python.org/downloads/). **IMPORTANT:** During installation, check the box that says **"Add python.exe to PATH"**.
+* **Git for Windows**: [Download Here](https://git-scm.com/download/win).
+
+#### 2. Configure Environment
+Open PowerShell in the root of the project directory and run:
+```powershell
+# Copy environment templates
+Copy-Item backend/.env.example backend/.env
+Copy-Item frontend/.env.example frontend/.env.local
+```
+Now edit `backend/.env` and configure:
+* `JWT_SECRET` (generate with: `python -c "import secrets; print(secrets.token_hex(32))"`)
+* `ADMIN_PASSWORD` (set a secure admin password)
+
+#### 3. Download ONNX Models
+In PowerShell, run:
+```powershell
+cd backend
+python scripts/download_models.py --all
+cd ..
+```
+
+#### 4. Start the NeoFace Stack
+Windows disables script execution by default for security. Run the custom PowerShell script with a temporary execution policy bypass:
+```powershell
+PowerShell -ExecutionPolicy Bypass -File .\start.ps1
+```
+This script will:
+1. Verify and copy your `.env` files.
+2. Check if the backend Docker image needs a rebuild.
+3. Start the Postgres database, Redis cache, Celery worker, and FastAPI server inside Docker.
+4. Detect if frontend dependencies need installation (runs `npm install`).
+5. Launch the Next.js frontend dev server.
+6. Gracefully shut down all Docker containers and background processes when you press `Ctrl+C`.
+
+#### 5. Run Database Migrations
+While the stack is running, open a **new PowerShell window** and run:
+```powershell
+docker compose exec api alembic upgrade head
+```
+
+---
+
+### Option B — WSL2 Setup (Highly Recommended)
+
+WSL2 provides a native Ubuntu Linux command-line environment inside Windows, providing 100% production parity and enabling the use of `Makefile` commands (`make setup`, `make start`, etc.).
+
+#### 1. Enable WSL2 & Install Ubuntu
+Open PowerShell as Administrator and run:
+```powershell
+wsl --install
+```
+If prompted, reboot your computer. Once finished, set up your Ubuntu username and password.
+
+#### 2. Configure Docker Desktop Integration
+1. Open **Docker Desktop** on Windows.
+2. Go to **Settings** (gear icon) → **General** → Ensure **"Use the WSL 2 based engine"** is checked.
+3. Go to **Resources** → **WSL Integration**.
+4. Toggle **"Enable integration with my default WSL distro"** (e.g., `Ubuntu`) to **ON**.
+5. Click **Apply & Restart**.
+
+#### 3. Install Development Tools in WSL Ubuntu
+Open your Ubuntu terminal and run the following command to install dependencies:
+```bash
+sudo apt update && sudo apt install -y make python3 python3-pip python3-venv nodejs npm git
+```
+> ⚠️ **Note:** The default nodejs package in some Ubuntu repositories may be outdated. If so, update it to Node 18+ using [NodeSource Node.js Binary Distributions](https://github.com/nodesource/distributions) or [nvm](https://github.com/nvm-sh/nvm).
+
+#### 4. Clone, Configure, and Start
+Within the WSL Ubuntu terminal, run:
+```bash
+# Clone
+git clone https://github.com/DivyeBhatnagar/NeoFace.git
+cd NeoFace
+
+# Setup environment files and install frontend dependencies
+make setup
+
+# Download models
+make models
+
+# Start the stack
+make start
+```
+
+#### 5. Run Migrations (WSL2)
+In a **second WSL2 terminal window**, navigate to the project directory and run:
+```bash
+make migrate
+```
+
+---
+
+### ⚠️ Common Windows Troubleshooting
+
+* **Script execution is blocked:** Ensure you run PowerShell using `-ExecutionPolicy Bypass` as shown:
+  `PowerShell -ExecutionPolicy Bypass -File .\start.ps1`
+* **Docker Memory Limit (OOM):** The AI models require significant RAM. By default, WSL2 might consume too much RAM or limit Docker memory.
+  If containers crash during startup or show OOM errors, create a `.wslconfig` file in your Windows user profile folder (`C:\Users\<YourUsername>\.wslconfig`) and configure:
+  ```ini
+  [wsl2]
+  memory=8GB   # Give WSL2 at least 8 GB of RAM
+  ```
+  Then restart WSL in PowerShell: `wsl --shutdown`.
+* **Line Endings Warning:** If git checks out files with CRLF (Windows carriage returns), Docker scripts might fail to execute. If you see errors like `/bin/bash^M: bad interpreter`, run this in git:
+  `git config --global autocrlf input`
+  Then re-clone the repository.
+
+---
+
 ## Common Commands
 
 ```bash
