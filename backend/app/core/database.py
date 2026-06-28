@@ -126,19 +126,25 @@ async def get_db() -> AsyncGenerator[AsyncClient, None]:
 
 
 # Lifecycle helpers to prevent main.py startup/shutdown errors
+import asyncio
+
 async def init_db() -> None:
     """Verify Firestore connection is active."""
     try:
-
         client = _get_firestore_client()
-        # Verify connection by querying collections async generator
-        async for _ in client.collections():
-            break
+        # Verify connection by querying collections async generator with a 5-second timeout
+        async def verify():
+            async for _ in client.collections():
+                break
+        await asyncio.wait_for(verify(), timeout=5.0)
         logger.info("database: Firestore connection verified (healthy)")
     except Exception as exc:
         logger.error(f"database: Firestore verification failed: {exc}")
-        if settings.ENVIRONMENT in ("production", "staging"):
-            raise exc
+        raise RuntimeError(
+            f"Firestore database verification failed during startup. "
+            f"Please verify that your FIREBASE_CREDENTIALS_JSON in .env is correct and active. "
+            f"Error details: {exc}"
+        ) from exc
 
 
 async def close_db() -> None:
