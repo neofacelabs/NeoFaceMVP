@@ -77,6 +77,19 @@ export function FirebaseAuthProvider({
     }
   }, [hydrated, isAuthenticated, pathname, router]);
 
+  // Sync Firebase logout when backend session terminates
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!isAuthenticated) {
+      const { firebaseUser, setFirebaseUser } = useAuthStore.getState();
+      if (firebaseUser) {
+        firebaseLogout()
+          .then(() => setFirebaseUser(null))
+          .catch(console.error);
+      }
+    }
+  }, [hydrated, isAuthenticated]);
+
   useEffect(() => {
     const unsubscribe = subscribeToAuthState((fbUser) => {
       // Always read fresh state via getState() — never rely on a closure value
@@ -88,8 +101,10 @@ export function FirebaseAuthProvider({
         // Sync the Firebase user reference regardless
         setFirebaseUser(fbUser);
 
-        // Only set user/tokens if there's no existing backend session.
-        if (!isAuthenticated) {
+        // Only set user/tokens if there's no existing backend session or local token.
+        const hasLocalSession = typeof window !== "undefined" && !!localStorage.getItem("bioid_access_token");
+
+        if (!isAuthenticated && !hasLocalSession) {
           fbUser.getIdToken()
             .then(async (idToken) => {
               try {
