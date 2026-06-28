@@ -145,6 +145,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Bootstrap admin user
     await bootstrap_admin()
 
+    # Initialize Supabase storage buckets if storage backend is active
+    if settings.STORAGE_BACKEND == "supabase":
+        try:
+            from app.services.supabase_storage_service import SupabaseStorageService
+            storage_service = SupabaseStorageService()
+            await storage_service.initialize_buckets()
+        except Exception as exc:
+            logger.error("Failed to initialize Supabase storage buckets during startup", error=str(exc))
+
     # ── ML Model Loading ──────────────────────────────────────────────────────
     # Models are LAZY-LOADED by default (loaded on first request).
     # Set PRELOAD_MODELS=true to warm them up at startup (requires ≥4GB RAM).
@@ -327,12 +336,19 @@ InsightFace • ArcFace • MediaPipe • FastAPI • PostgreSQL • Redis • C
             method=request.method,
             error=str(exc),
         )
+        headers = {
+            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Request-ID, x-api-key",
+        }
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "detail": "Internal server error",
                 "path": str(request.url.path),
             },
+            headers=headers,
         )
 
     # ── Routers ───────────────────────────────────────────────────────────────

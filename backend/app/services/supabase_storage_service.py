@@ -409,3 +409,28 @@ class SupabaseStorageService:
         """Return a signed URL for a stored face image."""
         path = f"users/{user_id}/{filename}"
         return await self.get_signed_url(BUCKET_FACE_IMAGES, path, expires_in)
+
+    async def initialize_buckets(self) -> None:
+        """
+        Verify that the required storage buckets exist.
+        If they do not, create them programmatically as private buckets.
+        """
+        logger.info("Initializing Supabase storage buckets...")
+        for bucket in VALID_BUCKETS:
+            try:
+                await self._run_sync(self._storage().get_bucket, bucket)
+                logger.info(f"Storage bucket '{bucket}' verified.")
+            except Exception:
+                logger.warning(f"Storage bucket '{bucket}' not found. Attempting to create it...")
+                try:
+                    await self._run_sync(
+                        self._storage().create_bucket,
+                        bucket,
+                        options={"public": False}
+                    )
+                    logger.info(f"Storage bucket '{bucket}' created successfully.")
+                except Exception as create_exc:
+                    logger.error(
+                        f"Failed to create storage bucket '{bucket}'",
+                        error=str(create_exc)
+                    )
