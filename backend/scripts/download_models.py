@@ -456,6 +456,49 @@ def download_insightface_buffalo(skip_existing: bool = True) -> bool:
         return False
 
 
+def quantize_all_models() -> None:
+    print("\n⚡ Starting ONNX dynamic quantization (INT8 optimization)...")
+    try:
+        from onnxruntime.quantization import quantize_dynamic, QuantType
+    except ImportError:
+        print("   ⚠️  onnxruntime.quantization not found — skipping model optimization.")
+        return
+
+    # Gather all ONNX files from models directory and insightface directory
+    insightface_home = os.environ.get("INSIGHTFACE_HOME", "/app/.insightface")
+    paths_to_check = [
+        MODELS_DIR,
+        Path(insightface_home) / "models" / "buffalo_l"
+    ]
+    
+    for path in paths_to_check:
+        if not path.exists():
+            continue
+        for f in path.glob("*.onnx"):
+            # Skip models that are already INT8 or too small to matter (< 5MB)
+            if "deepfake" in f.name or f.stat().st_size < 5 * 1024 * 1024:
+                continue
+                
+            original_size = f.stat().st_size
+            temp_output = f.with_name(f"{f.stem}_quant_temp.onnx")
+            print(f"  ⚡ Optimizing {f.name} ({original_size / 1024 / 1024:.1f} MB)...")
+            try:
+                quantize_dynamic(
+                    model_input=f,
+                    model_output=temp_output,
+                    weight_type=QuantType.QUInt8
+                )
+                if temp_output.exists():
+                    quant_size = temp_output.stat().st_size
+                    reduction = (original_size - quant_size) / original_size * 100
+                    os.replace(temp_output, f)
+                    print(f"     ✅ Done: {original_size / 1024 / 1024:.1f} MB -> {quant_size / 1024 / 1024:.1f} MB (-{reduction:.1f}%)")
+            except Exception as e:
+                print(f"     ❌ Error quantizing {f.name}: {e}")
+                if temp_output.exists():
+                    os.remove(temp_output)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────
@@ -507,6 +550,8 @@ def main() -> None:
                 print(f"\n   ⏭  {info['dest'].name} — requires --export (PyTorch) or --model {name}")
         # Pre-download InsightFace buffalo_l model to avoid runtime downloads
         results["buffalo_l"] = download_insightface_buffalo(skip_existing)
+        # Run model quantization to optimize memory footprint
+        quantize_all_models()
 
     if args.model:
         for name in args.model:
