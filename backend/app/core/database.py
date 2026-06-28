@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncGenerator
 from typing import Any
+import uuid
 
 from sqlalchemy import MetaData, text
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
@@ -97,6 +98,7 @@ def _build_engine() -> AsyncEngine:
         # (prepared statements are not supported across pooled connections)
         "statement_cache_size": 0,
         "prepared_statement_cache_size": 0,
+        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
     }
 
     engine = create_async_engine(
