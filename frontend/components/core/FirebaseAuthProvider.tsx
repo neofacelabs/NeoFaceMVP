@@ -66,6 +66,7 @@ export function FirebaseAuthProvider({
     const isPublicRoute =
       pathname === "/login" ||
       pathname === "/register" ||
+      pathname === "/forgot-password" ||
       pathname === "/pricing" ||
       pathname === "/about" ||
       pathname === "/features" ||
