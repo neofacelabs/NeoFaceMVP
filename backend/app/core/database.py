@@ -96,6 +96,7 @@ def _build_engine() -> AsyncEngine:
         # Required when using PgBouncer / Supabase Pooler in transaction mode
         # (prepared statements are not supported across pooled connections)
         "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
     }
 
     engine = create_async_engine(
