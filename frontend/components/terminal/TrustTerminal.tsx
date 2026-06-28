@@ -248,13 +248,14 @@ export function TrustTerminal() {
   // ── Fingerprint identify ───────────────────────────────────────────────────
 
   const identifyByFingerprint = async () => {
+    if (!fpOptions) {
+      toast.error("Fingerprint scanner is warming up. Please try again in a moment.");
+      prefetchFingerprintOptions();
+      return;
+    }
     setScanState("processing");
     try {
       let options = fpOptions;
-      if (!options) {
-        const res = await terminalApi.fingerprintBegin();
-        options = res.data;
-      }
 
       const processedOptions = {
         ...options,

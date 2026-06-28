@@ -307,14 +307,23 @@ export default function MemberBiometricsPage() {
   };
 
   const handleFingerprintRegister = async () => {
+    if (!prefetchedFpOptions) {
+      toast.error("Fingerprint scanner is warming up. Please try again in a moment.");
+      // Trigger a prefetch again in case it failed or timed out
+      if (showFpModal) {
+        setPrefetchedFpOptions(null);
+        setPrefetchedFpLoading(true);
+        webAuthnApi.registerBegin()
+          .then((res) => setPrefetchedFpOptions(res.data))
+          .catch(() => toast.error("Failed to initialize fingerprint scanner."))
+          .finally(() => setPrefetchedFpLoading(false));
+      }
+      return;
+    }
     try {
       setFpSubmitting(true);
       
       let options = prefetchedFpOptions;
-      if (!options) {
-        const res = await webAuthnApi.registerBegin();
-        options = res.data;
-      }
 
       // Translate base64url challenge and user id into Uint8Arrays
       options.challenge = base64urlToBytes(options.challenge);

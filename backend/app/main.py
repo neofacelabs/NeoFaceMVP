@@ -177,25 +177,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # ── ML Model Loading ──────────────────────────────────────────────────────
     # Models are LAZY-LOADED by default (loaded on first request).
     # Set PRELOAD_MODELS=true to warm them up at startup (requires ≥4GB RAM).
-    preload = os.environ.get("PRELOAD_MODELS", "false").lower() == "true"
+    preload = os.environ.get("PRELOAD_MODELS", "true").lower() == "true"
     if preload:
-        logger.info("PRELOAD_MODELS=true — warming up ML models at startup...")
+        logger.info("PRELOAD_MODELS=true — warming up core face ML models (InsightFace + Liveness) at startup...")
         try:
             from app.services.anti_spoof_service import AntiSpoofService
-            from app.services.deepfake_service import DeepfakeService
-            from app.services.depth_estimation_service import DepthEstimationService
-            from app.services.emotion_service import EmotionService
             from app.services.passive_liveness_service import PassiveLivenessService
             detector = get_face_detector()
             detector.initialize()
             AntiSpoofService.get_instance().initialize()
             PassiveLivenessService.get_instance().initialize()
-            EmotionService.get_instance().initialize()
-            DepthEstimationService.get_instance().initialize()
-            DeepfakeService.get_instance().initialize()
-            logger.info("ML model warmup complete")
+            logger.info("Core ML model warmup complete. Other non-critical analysis models will lazy-load on-demand.")
         except Exception as e:
-            logger.warning(f"ML model warmup failed (non-fatal, will lazy-load): {e}")
+            logger.warning(f"Core ML model warmup failed (non-fatal, will lazy-load): {e}")
     else:
         logger.info("ML models will lazy-load on first request (set PRELOAD_MODELS=true to pre-warm)")
 
