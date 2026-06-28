@@ -1,12 +1,18 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # NeoFace Backend — Production Dockerfile
 # Multi-stage build:
-#   Stage 1 (builder): Install Python deps with uv
+#   Stage 1 (builder): Install Python deps with uv + download ONNX models
 #   Stage 2 (runtime): Minimal image with only runtime artifacts
+#
+# Models are baked in at build time to avoid runtime OOM on Render (512MB limit).
+# Pass --build-arg SKIP_MODEL_DOWNLOAD=true for fast local dev builds.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: Builder ──────────────────────────────────────────────────────────
 FROM python:3.12-slim AS builder
+
+# Build arg: set to "true" to skip model downloads (useful for local dev builds)
+ARG SKIP_MODEL_DOWNLOAD=false
 
 # System dependencies for OpenCV, InsightFace, and mediapipe
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -38,6 +44,20 @@ COPY requirements.txt ./
 RUN uv venv /opt/venv --python python3.12
 ENV PATH="/opt/venv/bin:$PATH"
 RUN uv pip install --no-cache -r requirements.txt
+
+# ── Download ONNX models at build time ───────────────────────────────────────
+# Runs on the build server (unlimited RAM/disk) — never at runtime.
+# Models are then copied to the final image via COPY --from=builder.
+# Set SKIP_MODEL_DOWNLOAD=true to skip for fast local builds.
+COPY ./scripts ./scripts
+RUN mkdir -p /build/models /build/.insightface \
+    && if [ "$SKIP_MODEL_DOWNLOAD" != "true" ]; then \
+         INSIGHTFACE_HOME=/build/.insightface \
+         PYTHONPATH=/build \
+         python scripts/download_models.py --all ; \
+       else \
+         echo "[build] Skipping model download (SKIP_MODEL_DOWNLOAD=true)" ; \
+       fi
 
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
@@ -84,7 +104,11 @@ RUN chmod +x ./docker-entrypoint.sh
 RUN mkdir -p /app/storage/faces /app/logs /app/.insightface /app/models \
     && chown -R neoface:neoface /app/storage /app/logs /app/.insightface /app/models
 
-# Copy scripts
+# Copy pre-downloaded ONNX models from builder (already on disk, zero runtime download)
+COPY --from=builder --chown=neoface:neoface /build/models /app/models
+COPY --from=builder --chown=neoface:neoface /build/.insightface /app/.insightface
+
+# Copy scripts (kept for manual use, not run at startup)
 COPY --chown=neoface:neoface ./scripts ./scripts
 
 # InsightFace model cache directory

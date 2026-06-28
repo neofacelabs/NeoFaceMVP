@@ -6,7 +6,9 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     region: oregon
-    plan: standard  # Minimum 2GB RAM required; ML models lazy-load on first request
+    # Standard plan recommended: ONNX models (~800MB) are baked into the image at build time.
+    # The runtime only needs RAM for the actual request workload (ML inference).
+    plan: standard
 
     healthCheckPath: /health
 
@@ -19,30 +21,18 @@ services:
       - key: LOG_LEVEL
         value: INFO
 
-      # ── Database (Supabase) ───────────────────────────────────────────────────
-      - key: DATABASE_URL
-        value: postgresql+asyncpg://postgres.pblpwhahvwwemxhvfppd:NeoFace%402026@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
-      - key: DATABASE_POOL_SIZE
-        value: "5"
-      - key: DATABASE_MAX_OVERFLOW
-        value: "10"
-
-      # ── Supabase ─────────────────────────────────────────────────────────────
-      - key: SUPABASE_URL
-        value: https://pblpwhahvwwemxhvfppd.supabase.co
-      - key: SUPABASE_PROJECT_REF
-        value: pblpwhahvwwemxhvfppd
-      - key: SUPABASE_ANON_KEY
-        value: sb_publishable_g3KDGWtSCwq88ORJHQMAAA_4gR1SFdU
-      - key: SUPABASE_SERVICE_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBibHB3aGFodnd3ZW14aHZmcHBkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjM2NDY0OSwiZXhwIjoyMDk3OTQwNjQ5fQ.orE66iXubOO3-6eNNSZTxWUmL2wkAVFpb-apOj-JIvs
+      # ── Database (Firestore) ──────────────────────────────────────────────────
+      # No DATABASE_URL needed — fully migrated to Firebase Firestore.
+      # Set FIREBASE_CREDENTIALS_JSON as a secret in Render Dashboard.
 
       # ── JWT ───────────────────────────────────────────────────────────────────
       - key: JWT_SECRET
         generateValue: true   # Render generates a secure random value
 
       # ── Firebase ─────────────────────────────────────────────────────────────
-      # Set FIREBASE_CREDENTIALS_JSON in Render Dashboard → Environment as a secret
+      # IMPORTANT: Set FIREBASE_CREDENTIALS_JSON in Render Dashboard → Environment
+      # as a secret env var (paste the full single-line JSON from your service account key).
+      # Do NOT set it here to avoid committing credentials to git.
       - key: FIREBASE_CREDENTIALS_JSON
         value: ""
 
@@ -71,7 +61,7 @@ services:
 
       # ── Storage ───────────────────────────────────────────────────────────────
       - key: STORAGE_BACKEND
-        value: supabase
+        value: r2  # Cloudflare R2 (S3-compatible)
 
       # ── Admin bootstrap ───────────────────────────────────────────────────────
       - key: ADMIN_EMAIL

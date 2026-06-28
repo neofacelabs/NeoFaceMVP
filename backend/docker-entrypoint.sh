@@ -14,9 +14,10 @@ export PYTHONPATH=/app
 
 # Database migrations are no longer needed as NeoFace is fully migrated to Firestore.
 
-# Ensure models are downloaded/verified on startup (runs instantly if already present)
-echo "[entrypoint] Verifying ONNX models..."
-python scripts/download_models.py --all || echo "⚠️ Model download check warning: Some models could not be verified, using fallbacks."
+# Models are pre-downloaded during `docker build` into /app/models and /app/.insightface.
+# No download or quantization at runtime — avoids OOM on memory-constrained hosts.
+echo "[entrypoint] Verifying model files are present..."
+python scripts/download_models.py --status
 
 if [ $# -gt 0 ]; then
     echo "[entrypoint] Executing custom command: $@"
