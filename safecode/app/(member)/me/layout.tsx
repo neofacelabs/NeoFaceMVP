@@ -1,8 +1,0 @@
-"use client";
-
-import React from "react";
-import { MemberLayout } from "@/components/dashboard/member/MemberLayout";
-
-export default function Layout({ children }: { children: React.ReactNode }) {
-  return <MemberLayout>{children}</MemberLayout>;
-}

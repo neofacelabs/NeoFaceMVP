@@ -338,7 +338,7 @@ export default function Home() {
       <div ref={group2Ref} className="relative">
         <ScrollSequence
           folderPath="/Sequence/video2"
-          frameCount={201}
+          frameCount={193}
           sectionRef={group2Ref}
           opacity={0.25}
           overlayOpacity={0.4}
@@ -437,7 +437,7 @@ export default function Home() {
       <div ref={group3Ref} className="relative">
         <ScrollSequence
           folderPath="/Sequence/video3"
-          frameCount={201}
+          frameCount={196}
           sectionRef={group3Ref}
           opacity={0.22}
           overlayOpacity={0.4}
