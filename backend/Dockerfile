@@ -54,7 +54,7 @@ RUN mkdir -p /build/models /build/.insightface \
     && if [ "$SKIP_MODEL_DOWNLOAD" != "true" ]; then \
          INSIGHTFACE_HOME=/build/.insightface \
          PYTHONPATH=/build \
-         python scripts/download_models.py --all ; \
+         python3 scripts/download_models.py --all ; \
        else \
          echo "[build] Skipping model download (SKIP_MODEL_DOWNLOAD=true)" ; \
        fi

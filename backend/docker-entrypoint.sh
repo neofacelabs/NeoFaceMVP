@@ -17,7 +17,7 @@ export PYTHONPATH=/app
 # Models are pre-downloaded during `docker build` into /app/models and /app/.insightface.
 # No download or quantization at runtime — avoids OOM on memory-constrained hosts.
 echo "[entrypoint] Verifying model files are present..."
-python scripts/download_models.py --status
+python3 scripts/download_models.py --status
 
 if [ $# -gt 0 ]; then
     echo "[entrypoint] Executing custom command: $@"
