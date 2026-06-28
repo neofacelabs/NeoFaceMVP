@@ -20,6 +20,13 @@ class UserBase(BaseModel):
         examples=["+14155552671"],
     )
 
+    @field_validator("phone", mode="before")
+    @classmethod
+    def coerce_empty_phone_to_none(cls, v: str | None) -> str | None:
+        if v == "":
+            return None
+        return v
+
 
 class UserCreate(UserBase):
     """Request body for creating a new user account."""
@@ -50,6 +57,13 @@ class UserUpdate(BaseModel):
         pattern=r"^\+?[1-9]\d{1,14}$",
     )
     is_active: bool | None = None
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def coerce_empty_phone_to_none(cls, v: str | None) -> str | None:
+        if v == "":
+            return None
+        return v
 
 
 class UserResponse(UserBase):

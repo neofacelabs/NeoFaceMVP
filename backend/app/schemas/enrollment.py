@@ -6,7 +6,7 @@ Pydantic v2 models for face enrollment request/response.
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class EnrollmentRequest(BaseModel):
@@ -22,6 +22,13 @@ class EnrollmentRequest(BaseModel):
         pattern=r"^\+?[1-9]\d{1,14}$",
         examples=["+14155552671"],
     )
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def coerce_empty_phone_to_none(cls, v: str | None) -> str | None:
+        if v == "":
+            return None
+        return v
 
 
 class FaceQualityResult(BaseModel):
