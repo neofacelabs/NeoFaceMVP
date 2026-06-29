@@ -163,7 +163,13 @@ async def close_db() -> None:
     """Close the Firestore client session."""
     global _firestore_client
     if _firestore_client is not None:
-        await _firestore_client.close()
+        try:
+            res = _firestore_client.close()
+            import inspect
+            if inspect.iscoroutine(res):
+                await res
+        except Exception:
+            pass
         _firestore_client = None
         logger.info("database: Firestore connection closed")
 
