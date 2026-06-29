@@ -12,6 +12,10 @@ Architecture:
 """
 
 import os
+import warnings
+# Suppress firestore query warnings about positional arguments
+warnings.filterwarnings("ignore", category=UserWarning, message=".*positional arguments.*")
+
 # Force single-threaded execution for numerical libraries to prevent thread-safety segfaults on macOS/ARM
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
