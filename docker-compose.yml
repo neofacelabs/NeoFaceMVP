@@ -56,6 +56,7 @@ services:
       ENVIRONMENT: development
       DEBUG: "false"
       LOG_LEVEL: INFO
+      PRELOAD_MODELS: "true"
       # Security — CHANGE THESE IN PRODUCTION
       JWT_SECRET: "change-this-to-a-secure-random-64-char-secret-before-deploying"
       # Model paths (mounted as volume)

@@ -28,7 +28,7 @@ else
         --host 0.0.0.0 \
         --port 8000 \
         --workers "${WEB_CONCURRENCY:-1}" \
-        --loop uvloop \
+        --loop asyncio \
         --http httptools \
         --access-log \
         --no-use-colors
