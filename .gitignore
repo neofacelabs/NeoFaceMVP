@@ -16,6 +16,8 @@ venv/
 env/
 
 # Environment
+.env
+backend/.env
 !.env.example
 !frontend/.env.example
 
