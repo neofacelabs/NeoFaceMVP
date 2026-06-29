@@ -42,7 +42,7 @@ services:
 
       # ── Face recognition ──────────────────────────────────────────────────────
       - key: ANTI_SPOOF_ENABLED
-        value: "false"    # Models must be bundled or downloaded; disable until mounted
+        value: "true"    # Models must be bundled or downloaded; disable until mounted
       - key: STRICT_MODEL_VERIFICATION
         value: "false"    # Allow startup without ONNX weights
       - key: USE_LIVENESS_PIPELINE
@@ -50,7 +50,7 @@ services:
       # ML models lazy-load on first request to avoid OOM at startup.
       # Set to true only on instances with ≥4GB RAM.
       - key: PRELOAD_MODELS
-        value: "false"
+        value: "true"
       # Fix matplotlib permission error in non-root container
       - key: MPLCONFIGDIR
         value: /tmp/matplotlib
