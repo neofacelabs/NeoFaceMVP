@@ -72,6 +72,7 @@ class PassiveLivenessService:
     _initialized: ClassVar[bool] = False
 
     def __init__(self) -> None:
+        import threading
         self._session_v1 = None
         self._session_v2 = None
         self._input_v1: str = ""
@@ -80,6 +81,7 @@ class PassiveLivenessService:
         self._output_v2: str = ""
         self._v1_loaded = False
         self._v2_loaded = False
+        self._lock = threading.Lock()
 
     @classmethod
     def get_instance(cls) -> PassiveLivenessService:
@@ -94,43 +96,47 @@ class PassiveLivenessService:
         if self._initialized:
             return
 
-        if not settings.ANTI_SPOOF_ENABLED:
-            logger.info("passive_liveness.init: disabled via ANTI_SPOOF_ENABLED=False")
+        with self._lock:
+            if self._initialized:
+                return
+
+            if not settings.ANTI_SPOOF_ENABLED:
+                logger.info("passive_liveness.init: disabled via ANTI_SPOOF_ENABLED=False")
+                PassiveLivenessService._initialized = True
+                return
+
+            try:
+                import onnxruntime as ort  # type: ignore[import]
+                providers = ["CPUExecutionProvider"]
+
+                # MiniFASNetV1
+                v1_path = Path(getattr(settings, "MINIFASNET_V1_PATH", "./models/MiniFASNetV1.onnx"))
+                if v1_path.exists():
+                    self._session_v1 = ort.InferenceSession(str(v1_path), providers=providers)
+                    self._input_v1 = self._session_v1.get_inputs()[0].name
+                    self._output_v1 = self._session_v1.get_outputs()[0].name
+                    self._v1_loaded = True
+                    logger.info("passive_liveness.init: MiniFASNetV1 loaded", path=str(v1_path))
+                else:
+                    logger.warning("passive_liveness.init: MiniFASNetV1 not found", path=str(v1_path))
+
+                # MiniFASNetV2
+                v2_path = Path(getattr(settings, "MINIFASNET_V2_PATH", "./models/MiniFASNetV2.onnx"))
+                if v2_path.exists():
+                    self._session_v2 = ort.InferenceSession(str(v2_path), providers=providers)
+                    self._input_v2 = self._session_v2.get_inputs()[0].name
+                    self._output_v2 = self._session_v2.get_outputs()[0].name
+                    self._v2_loaded = True
+                    logger.info("passive_liveness.init: MiniFASNetV2 loaded", path=str(v2_path))
+                else:
+                    logger.warning("passive_liveness.init: MiniFASNetV2 not found", path=str(v2_path))
+
+            except ImportError:
+                logger.warning("passive_liveness.init: onnxruntime not available — using heuristic")
+            except Exception as exc:
+                logger.error("passive_liveness.init: error loading models", error=str(exc))
+
             PassiveLivenessService._initialized = True
-            return
-
-        try:
-            import onnxruntime as ort  # type: ignore[import]
-            providers = ["CPUExecutionProvider"]
-
-            # MiniFASNetV1
-            v1_path = Path(getattr(settings, "MINIFASNET_V1_PATH", "./models/MiniFASNetV1.onnx"))
-            if v1_path.exists():
-                self._session_v1 = ort.InferenceSession(str(v1_path), providers=providers)
-                self._input_v1 = self._session_v1.get_inputs()[0].name
-                self._output_v1 = self._session_v1.get_outputs()[0].name
-                self._v1_loaded = True
-                logger.info("passive_liveness.init: MiniFASNetV1 loaded", path=str(v1_path))
-            else:
-                logger.warning("passive_liveness.init: MiniFASNetV1 not found", path=str(v1_path))
-
-            # MiniFASNetV2
-            v2_path = Path(getattr(settings, "MINIFASNET_V2_PATH", "./models/MiniFASNetV2.onnx"))
-            if v2_path.exists():
-                self._session_v2 = ort.InferenceSession(str(v2_path), providers=providers)
-                self._input_v2 = self._session_v2.get_inputs()[0].name
-                self._output_v2 = self._session_v2.get_outputs()[0].name
-                self._v2_loaded = True
-                logger.info("passive_liveness.init: MiniFASNetV2 loaded", path=str(v2_path))
-            else:
-                logger.warning("passive_liveness.init: MiniFASNetV2 not found", path=str(v2_path))
-
-        except ImportError:
-            logger.warning("passive_liveness.init: onnxruntime not available — using heuristic")
-        except Exception as exc:
-            logger.error("passive_liveness.init: error loading models", error=str(exc))
-
-        PassiveLivenessService._initialized = True
 
     # ── Preprocessing ─────────────────────────────────────────────────────────
 

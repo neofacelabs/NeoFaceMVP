@@ -90,10 +90,12 @@ class AntiSpoofService:
     _initialized: ClassVar[bool] = False
 
     def __init__(self) -> None:
+        import threading
         self._session = None          # onnxruntime.InferenceSession
         self._input_name: str = ""
         self._output_name: str = ""
         self._model_loaded: bool = False
+        self._lock = threading.Lock()
 
     # ── Singleton ─────────────────────────────────────────────────────────────
 
@@ -117,53 +119,57 @@ class AntiSpoofService:
         if self._initialized:
             return
 
-        model_path = Path(settings.ANTI_SPOOF_MODEL_PATH)
+        with self._lock:
+            if self._initialized:
+                return
 
-        if not settings.ANTI_SPOOF_ENABLED:
-            logger.info("anti_spoof.init: disabled via ANTI_SPOOF_ENABLED=False")
+            model_path = Path(settings.ANTI_SPOOF_MODEL_PATH)
+
+            if not settings.ANTI_SPOOF_ENABLED:
+                logger.info("anti_spoof.init: disabled via ANTI_SPOOF_ENABLED=False")
+                AntiSpoofService._initialized = True
+                return
+
+            if not model_path.exists():
+                logger.warning(
+                    "anti_spoof.init: ONNX model not found — using heuristic fallback",
+                    path=str(model_path),
+                    hint="See models/README.md for download instructions",
+                )
+                AntiSpoofService._initialized = True
+                return
+
+            try:
+                import onnxruntime as ort  # type: ignore[import]
+
+                # Use CPU provider for portability; add CUDAExecutionProvider first
+                # in the list to enable GPU when onnxruntime-gpu is installed.
+                providers = ["CPUExecutionProvider"]
+                self._session = ort.InferenceSession(
+                    str(model_path),
+                    providers=providers,
+                )
+
+                # Cache input / output node names (set at model creation time)
+                self._input_name = self._session.get_inputs()[0].name
+                self._output_name = self._session.get_outputs()[0].name
+                self._model_loaded = True
+
+                logger.info(
+                    "anti_spoof.init: MiniFASNet loaded",
+                    path=str(model_path),
+                    input=self._input_name,
+                    output=self._output_name,
+                )
+
+            except Exception as exc:
+                logger.error(
+                    "anti_spoof.init: failed to load ONNX model — using heuristic fallback",
+                    error=str(exc),
+                    path=str(model_path),
+                )
+
             AntiSpoofService._initialized = True
-            return
-
-        if not model_path.exists():
-            logger.warning(
-                "anti_spoof.init: ONNX model not found — using heuristic fallback",
-                path=str(model_path),
-                hint="See models/README.md for download instructions",
-            )
-            AntiSpoofService._initialized = True
-            return
-
-        try:
-            import onnxruntime as ort  # type: ignore[import]
-
-            # Use CPU provider for portability; add CUDAExecutionProvider first
-            # in the list to enable GPU when onnxruntime-gpu is installed.
-            providers = ["CPUExecutionProvider"]
-            self._session = ort.InferenceSession(
-                str(model_path),
-                providers=providers,
-            )
-
-            # Cache input / output node names (set at model creation time)
-            self._input_name = self._session.get_inputs()[0].name
-            self._output_name = self._session.get_outputs()[0].name
-            self._model_loaded = True
-
-            logger.info(
-                "anti_spoof.init: MiniFASNet loaded",
-                path=str(model_path),
-                input=self._input_name,
-                output=self._output_name,
-            )
-
-        except Exception as exc:
-            logger.error(
-                "anti_spoof.init: failed to load ONNX model — using heuristic fallback",
-                error=str(exc),
-                path=str(model_path),
-            )
-
-        AntiSpoofService._initialized = True
 
     # ── Preprocessing ─────────────────────────────────────────────────────────
 

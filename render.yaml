@@ -51,6 +51,9 @@ services:
       # Set to true only on instances with ≥4GB RAM.
       - key: PRELOAD_MODELS
         value: "true"
+      # Limit Uvicorn to 1 worker to save RAM and prevent OOM kills with heavy ML models
+      - key: WEB_CONCURRENCY
+        value: "1"
       # Fix matplotlib permission error in non-root container
       - key: MPLCONFIGDIR
         value: /tmp/matplotlib

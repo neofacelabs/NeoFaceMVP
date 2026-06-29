@@ -91,8 +91,12 @@ class VerificationService:
 
         VerificationLogger.verification_started(ip_address or "unknown")
 
+        import anyio
+
         # ── Step 1: Detect face ───────────────────────────────────────────────
-        detection_result, face = self.detector.detect_single(image_bytes)
+        detection_result, face = await anyio.to_thread.run_sync(
+            self.detector.detect_single, image_bytes
+        )
 
         if not detection_result.success or face is None:
             reason = detection_result.error or "No face detected"
@@ -108,9 +112,13 @@ class VerificationService:
         if skip_liveness:
             liveness_raw = self._bypass_liveness()
         elif run_pipeline:
-            liveness_raw = self.liveness.analyze_with_pipeline(image_bytes)
+            liveness_raw = await anyio.to_thread.run_sync(
+                self.liveness.analyze_with_pipeline, image_bytes
+            )
         else:
-            liveness_raw = self.liveness.analyze(image_bytes)
+            liveness_raw = await anyio.to_thread.run_sync(
+                self.liveness.analyze, image_bytes
+            )
 
         liveness_schema = self._to_schema(liveness_raw)
 
@@ -131,7 +139,9 @@ class VerificationService:
 
         # ── Step 3: Generate query embedding ──────────────────────────────────
         try:
-            query_embedding = self.embedder.get_embedding(face)
+            query_embedding = await anyio.to_thread.run_sync(
+                self.embedder.get_embedding, face
+            )
         except ValueError as exc:
             reason = f"Embedding generation failed: {exc}"
             await self._log_failure(

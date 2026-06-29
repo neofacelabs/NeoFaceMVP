@@ -61,7 +61,9 @@ class FaceDetectorService:
     _initialized: ClassVar[bool] = False
 
     def __init__(self) -> None:
+        import threading
         self._model: FaceAnalysis | None = None
+        self._lock = threading.Lock()
 
     @classmethod
     def get_instance(cls) -> FaceDetectorService:
@@ -79,39 +81,43 @@ class FaceDetectorService:
         if self._initialized:
             return
 
-        logger.info("Loading InsightFace model", model=settings.FACE_DETECTION_MODEL)
-        try:
-            import os
-            import warnings
+        with self._lock:
+            if self._initialized:
+                return
 
-            # InsightFace internally probes CUDAExecutionProvider even in CPU mode
-            # (ctx_id=-1).  The provider is unavailable in this environment, which
-            # triggers a noisy-but-harmless UserWarning from onnxruntime.  Suppress
-            # it so logs stay clean.
-            os.environ.setdefault("ORT_LOGGING_LEVEL", "3")  # ERROR-only
-            warnings.filterwarnings(
-                "ignore",
-                message=".*CUDAExecutionProvider.*",
-                category=UserWarning,
-            )
+            logger.info("Loading InsightFace model", model=settings.FACE_DETECTION_MODEL)
+            try:
+                import os
+                import warnings
 
-            insightface_root = os.environ.get("INSIGHTFACE_HOME", os.path.expanduser("~/.insightface"))
-            self._model = FaceAnalysis(
-                name=settings.FACE_DETECTION_MODEL,
-                allowed_modules=["detection", "recognition"],
-                root=insightface_root,
-            )
-            # ctx_id=-1 = CPU; set ctx_id=0 for GPU
-            self._model.prepare(
-                ctx_id=-1,
-                det_thresh=settings.DETECTION_THRESHOLD,
-                det_size=(640, 640)
-            )
-            FaceDetectorService._initialized = True
-            logger.info("InsightFace model loaded successfully")
-        except Exception as exc:
-            logger.error("Failed to load InsightFace model", error=str(exc))
-            raise RuntimeError(f"Face detection model failed to load: {exc}") from exc
+                # InsightFace internally probes CUDAExecutionProvider even in CPU mode
+                # (ctx_id=-1).  The provider is unavailable in this environment, which
+                # triggers a noisy-but-harmless UserWarning from onnxruntime.  Suppress
+                # it so logs stay clean.
+                os.environ.setdefault("ORT_LOGGING_LEVEL", "3")  # ERROR-only
+                warnings.filterwarnings(
+                    "ignore",
+                    message=".*CUDAExecutionProvider.*",
+                    category=UserWarning,
+                )
+
+                insightface_root = os.environ.get("INSIGHTFACE_HOME", os.path.expanduser("~/.insightface"))
+                self._model = FaceAnalysis(
+                    name=settings.FACE_DETECTION_MODEL,
+                    allowed_modules=["detection", "recognition"],
+                    root=insightface_root,
+                )
+                # ctx_id=-1 = CPU; set ctx_id=0 for GPU
+                self._model.prepare(
+                    ctx_id=-1,
+                    det_thresh=settings.DETECTION_THRESHOLD,
+                    det_size=(640, 640)
+                )
+                FaceDetectorService._initialized = True
+                logger.info("InsightFace model loaded successfully")
+            except Exception as exc:
+                logger.error("Failed to load InsightFace model", error=str(exc))
+                raise RuntimeError(f"Face detection model failed to load: {exc}") from exc
 
     def _bytes_to_bgr(self, image_bytes: bytes) -> np.ndarray:
         """Decode image bytes to OpenCV BGR array."""
