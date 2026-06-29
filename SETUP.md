@@ -185,6 +185,12 @@ Install the following Windows installers:
 * **Node.js 18+ (LTS)**: [Download Here](https://nodejs.org/). Make sure the installer adds Node/NPM to your system `PATH`.
 * **Python 3.12+**: [Download Here](https://www.python.org/downloads/). **IMPORTANT:** During installation, check the box that says **"Add python.exe to PATH"**.
 * **Git for Windows**: [Download Here](https://git-scm.com/download/win).
+* **Microsoft C++ Build Tools (Strictly Required for Native python virtual envs)**: `insightface` depends on C++ extensions that compile on installation. 
+  * Open PowerShell as Administrator and run:
+    ```powershell
+    winget install Microsoft.VisualStudio.2022.BuildTools --override "--passive --config Redirect.vsconfig --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+    ```
+  * Or download the Visual Studio Installer from [visualstudio.microsoft.com](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and select the **"Desktop development with C++"** workload.
 
 #### 2. Configure Environment
 Open PowerShell in the root of the project directory and run:
@@ -193,6 +199,9 @@ Copy-Item backend/.env.example backend/.env
 Copy-Item frontend/.env.example frontend/.env.local
 ```
 Edit your environment values in `backend/.env` with your Firestore and Cloudflare R2 keys.
+
+> [!NOTE]
+> `uvloop` is not supported on Windows. The backend `requirements.txt` excludes `uvloop` on Windows (`sys_platform != "win32"`) automatically so native pip installations complete successfully.
 
 #### 3. Download ONNX Models
 ```powershell
@@ -233,6 +242,22 @@ make setup
 make models
 make start
 ```
+
+---
+
+### 🧠 Developer Notes: Loop & Thread Optimizations
+
+#### 1. Uvicorn Loop Settings
+By default, Uvicorn utilizes `uvloop` for event loop management under Linux. However, compiling and initializing deep learning model sessions (e.g. `InferenceSession` in `onnxruntime` or `FaceAnalysis` in `insightface`) directly inside `uvloop` concurrently can cause SEGFAULTs and memory access violations. 
+
+To solve this, NeoFace runs Uvicorn using the standard Python **`asyncio`** loop (`--loop asyncio`). This ensures a completely stable startup and execution sequence.
+
+#### 2. Asynchronous Thread Offloading
+Deep learning model loading and inference are heavy, CPU-bound operations. Executing them directly in FastAPI's main request loop freezes the event loop.
+
+To prevent execution lockups:
+* All operations inside `VerificationService.verify(...)` (including face detection, anti-spoofing pipeline, and embedding generation) are wrapped inside `anyio.to_thread.run_sync`.
+* These run in a separate background threadpool, keeping the main event loop fully responsive.
 
 ---
 
