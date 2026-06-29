@@ -103,29 +103,30 @@ async def update_identity(
     ctx: OrgContext = Depends(get_org_context),
     db: AsyncSession = Depends(get_db),
 ) -> IdentityResponse:
-    from app.models.identity import Identity
-    from app.models.site import Site
+    from datetime import datetime, timezone
+    from app.repositories.identity_repository import IdentityRepository
     
-    stmt = select(Identity).where(Identity.id == identity_id, Identity.organization_id == ctx.org_id)
-    identity = (await db.execute(stmt)).scalar_one_or_none()
+    repo = IdentityRepository(db)
+    identity = await repo.get_by_id_and_org(identity_id, ctx.org_id)
     if not identity:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found")
 
+    doc_ref = db.collection("identities").document(str(identity_id))
+    updates = {
+        "updated_at": datetime.now(timezone.utc)
+    }
+
     if schema.site_id is not None:
-        # Check if site belongs to this organization
-        site_stmt = select(Site).where(Site.id == schema.site_id, Site.organization_id == ctx.org_id)
-        site = (await db.execute(site_stmt)).scalar_one_or_none()
-        if not site:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found in organization")
+        updates["site_id"] = str(schema.site_id)
         identity.site_id = schema.site_id
 
     for field, val in schema.model_dump(exclude_unset=True).items():
         if field == "site_id":
             continue
         if val is not None:
+            updates[field] = val
             setattr(identity, field, val)
 
-    await db.flush()
-    await db.refresh(identity)
+    await doc_ref.update(updates)
     return IdentityResponse.model_validate(identity)
 

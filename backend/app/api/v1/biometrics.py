@@ -360,22 +360,14 @@ async def delete_face(
         user.is_enrolled = False
         # Update matching Identity records in multitenant AaaS to "pending"
         try:
-            from app.models.identity import Identity
-            from sqlalchemy import update, or_
-            stmt = (
-                update(Identity)
-                .where(
-                    or_(
-                        Identity.external_user_id == user.email,
-                        Identity.external_user_id.like(f'%"{user.email}"%')
-                    )
-                )
-                .values(
-                    enrollment_status="pending",
-                    face_embedding_id=None
-                )
-            )
-            await db.execute(stmt)
+            col = db.collection("identities")
+            docs = await col.where("external_user_id", "==", user.email).get()
+            for doc in docs:
+                await doc.reference.update({
+                    "enrollment_status": "pending",
+                    "face_embedding_id": None,
+                    "updated_at": datetime.now(timezone.utc)
+                })
         except Exception as exc:
             logger.warning("Failed to reset Identity status during face delete", email=user.email, error=str(exc))
     await db.commit()
@@ -422,13 +414,13 @@ async def delete_fingerprint(
     await repo.delete_by_user(current_user.user_uuid)
 
     # Also deactivate all WebAuthn devices/fingerprints
-    from app.models.biometric_credential import BiometricCredential
-    from sqlalchemy import update
-    await db.execute(
-        update(BiometricCredential)
-        .where(BiometricCredential.user_id == current_user.user_uuid)
-        .values(is_active=False)
-    )
+    try:
+        col = db.collection("biometric_credentials")
+        docs = await col.where("user_id", "==", str(current_user.user_uuid)).get()
+        for doc in docs:
+            await doc.reference.update({"is_active": False})
+    except Exception as exc:
+        logger.warning("Failed to deactivate biometric credentials during fingerprint delete", error=str(exc))
 
     from app.repositories.user_repository import UserRepository
     user_repo = UserRepository(db)

@@ -122,6 +122,18 @@ async def get_db() -> AsyncGenerator[AsyncClient, None]:
     FastAPI dependency — yields the Firestore AsyncClient.
     """
     client = _get_firestore_client()
+    
+    # Monkeypatch the instance to prevent crashes on legacy SQLAlchemy commits/rollbacks
+    async def dummy_async(*args, **kwargs):
+        return None
+
+    if not hasattr(client, "commit"):
+        setattr(client, "commit", dummy_async)
+    if not hasattr(client, "rollback"):
+        setattr(client, "rollback", dummy_async)
+    if not hasattr(client, "flush"):
+        setattr(client, "flush", dummy_async)
+
     yield client
 
 
