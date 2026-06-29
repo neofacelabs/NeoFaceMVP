@@ -5,9 +5,12 @@
 import axios, { AxiosError, type AxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/store/auth";
 
+const isProd = process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_VERCEL_ENV !== undefined;
+const defaultBackend = isProd ? "https://neofacemvp.onrender.com" : "http://127.0.0.1:8000";
+
 const BASE_URL = typeof window !== "undefined"
   ? (process.env.NEXT_PUBLIC_API_BASE_URL || "")
-  : (process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000");
+  : (process.env.NEXT_PUBLIC_API_BASE_URL || defaultBackend);
 
 // ── Main API instance ────────────────────────────────────────────────────────
 export const api = axios.create({

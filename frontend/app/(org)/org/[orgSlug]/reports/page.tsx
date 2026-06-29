@@ -36,8 +36,8 @@ export default function OrganizationReportsPage({ params }: { params: Promise<{ 
     try {
       setDownloading(templateId);
       const token = localStorage.getItem("bioid_access_token");
-      
-      const response = await fetch(`http://localhost:8000/api/v1/reports/export?template_id=${templateId}`, {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+      const response = await fetch(`${apiBase}/api/v1/reports/export?template_id=${templateId}`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
