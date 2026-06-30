@@ -6,6 +6,21 @@ import { TextHoverEffect } from "./ui/text-hover-effect";
 export function Footer() {
   return (
     <footer className="relative z-10 mt-20 w-full overflow-hidden pt-16 pb-8 bg-transparent">
+      {/* Scope strict left-alignment for footer navigation columns to override global/webflow CSS defaults */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        .nfl-footer-column,
+        .nfl-footer-column ul, 
+        .nfl-footer-column li, 
+        .nfl-footer-column a,
+        .nfl-footer-column span {
+          text-align: left !important;
+          align-items: flex-start !important;
+          justify-content: flex-start !important;
+          margin-left: 0 !important;
+          padding-left: 0 !important;
+        }
+      `}} />
+
       {/* Background Glow */}
       <div className="pointer-events-none absolute top-0 left-1/2 z-0 h-full w-full -translate-x-1/2 select-none">
         <div className="absolute -top-32 left-1/4 h-72 w-72 rounded-full bg-emerald-500/5 blur-3xl"></div>
@@ -18,7 +33,7 @@ export function Footer() {
         <div className="w-full h-px bg-white/5 mb-16" />
 
         {/* Main Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-8 items-start text-left mb-16">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-8 items-start text-left mb-16">
           
           {/* Column 1: Brand Info */}
           <div className="col-span-2 md:col-span-4 lg:col-span-2 flex flex-col items-start gap-4">
@@ -69,7 +84,7 @@ export function Footer() {
           </div>
 
           {/* Column 2: Product */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 items-start text-left nfl-footer-column">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5A8] uppercase">Product</span>
             <ul className="flex flex-col gap-2 text-[12.5px] font-sans font-light text-white/45">
               <li><Link href="/features" className="hover:text-white transition-colors">Features</Link></li>
@@ -83,7 +98,7 @@ export function Footer() {
           </div>
 
           {/* Column 3: Developers */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 items-start text-left nfl-footer-column">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5A8] uppercase">Developers</span>
             <ul className="flex flex-col gap-2 text-[12.5px] font-sans font-light text-white/45">
               <li><Link href="/features" className="hover:text-white transition-colors">Quick Start</Link></li>
@@ -98,7 +113,7 @@ export function Footer() {
           </div>
 
           {/* Column 4: Company */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 items-start text-left nfl-footer-column">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5A8] uppercase">Company</span>
             <ul className="flex flex-col gap-2 text-[12.5px] font-sans font-light text-white/45">
               <li><Link href="/about" className="hover:text-white transition-colors">About</Link></li>
@@ -108,7 +123,7 @@ export function Footer() {
           </div>
 
           {/* Column 5: Resources */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 items-start text-left nfl-footer-column">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5A8] uppercase">Resources</span>
             <ul className="flex flex-col gap-2 text-[12.5px] font-sans font-light text-white/45">
               <li><Link href="/features" className="hover:text-white transition-colors">Help Center</Link></li>
@@ -119,7 +134,7 @@ export function Footer() {
           </div>
 
           {/* Column 6: Security */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 items-start text-left nfl-footer-column">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5A8] uppercase">Security</span>
             <ul className="flex flex-col gap-2 text-[12.5px] font-sans font-light text-white/45">
               <li><Link href="/about" className="hover:text-white transition-colors">Security Overview</Link></li>
@@ -132,7 +147,7 @@ export function Footer() {
           </div>
 
           {/* Column 7: Legal */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 items-start text-left nfl-footer-column">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5A8] uppercase">Legal</span>
             <ul className="flex flex-col gap-2 text-[12.5px] font-sans font-light text-white/45">
               <li><Link href="/about" className="hover:text-white transition-colors">Privacy Policy</Link></li>
