@@ -7,8 +7,8 @@ import { motion } from "framer-motion";
 const PLANS = [
   {
     name: "Free",
-    priceMonthly: "₹0",
-    priceAnnual: "₹0",
+    priceMonthly: "Free",
+    priceAnnual: "Free",
     desc: "For developers & prototypes",
     color: "#00E5A8",
     cta: "Start Free",
@@ -116,7 +116,7 @@ export default function PricingPage() {
   return (
     <SubpageLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         {/* Header */}
         <div className="text-center mb-14">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider mb-4 border border-[#00C2FF]/20 bg-[#00C2FF]/5 text-[#00C2FF]">
@@ -132,12 +132,12 @@ export default function PricingPage() {
           {/* Toggle */}
           <div className="flex items-center justify-center gap-3 mt-10">
             <span className={`text-[13px] ${!annual ? "text-white font-medium" : "text-white/40"}`}>Monthly billing</span>
-            <button 
+            <button
               onClick={() => setAnnual(!annual)}
               className="relative w-12 h-6.5 rounded-full border border-white/10 transition-colors bg-white/5"
             >
-              <div 
-                className="w-5 h-5 rounded-full bg-white transition-transform absolute top-0.5 left-0.5" 
+              <div
+                className="w-5 h-5 rounded-full bg-white transition-transform absolute top-0.5 left-0.5"
                 style={{ transform: annual ? "translateX(24px)" : "translateX(0)" }}
               />
             </button>
@@ -222,7 +222,7 @@ export default function PricingPage() {
                       </div>
                     )}
 
-                    <a 
+                    <a
                       href={plan.name === "Enterprise" ? "mailto:sales@neoface.io" : "/register"}
                       className="w-full py-3 rounded-full text-center text-[12px] font-mono uppercase tracking-wider font-bold transition-all duration-300 block"
                       style={{
@@ -280,27 +280,33 @@ export default function PricingPage() {
 
 /* ── Pricing Comparison Table ── */
 const COMPARE_FEATURES = [
-  { section: "Authentication & Limits", rows: [
-    { label: "Monthly Active Users (MAUs)", free: "100", pro: "1,000", business: "7,500", enterprise: "Unlimited" },
-    { label: "Face verification requests/mo", free: "250", pro: "7,500", business: "20,000", enterprise: "Unlimited" },
-    { label: "Face enrollment requests/mo", free: "100", pro: "1,000", business: "7,500", enterprise: "Unlimited" },
-    { label: "Passive liveness detection", free: "✓", pro: "✓", business: "✓", enterprise: "✓" },
-    { label: "Fingerprint authentication", free: "—", pro: "✓", business: "✓", enterprise: "✓" },
-    { label: "Multi-sensor trust engine", free: "—", pro: "✓", business: "✓", enterprise: "✓" },
-  ]},
-  { section: "Security & Operations", rows: [
-    { label: "NeoID & QR Identity", free: "✓", pro: "✓", business: "✓", enterprise: "✓" },
-    { label: "Webhook event notifications", free: "—", pro: "✓", business: "✓", enterprise: "✓" },
-    { label: "Audit logs", free: "—", pro: "✓", business: "✓", enterprise: "✓" },
-    { label: "Multi-project support", free: "—", pro: "✓", business: "✓ (Unlimited)", enterprise: "✓ (Unlimited)" },
-    { label: "Team management & RBAC", free: "—", pro: "—", business: "✓", enterprise: "✓" },
-  ]},
-  { section: "Infrastructure & SLAs", rows: [
-    { label: "SLA uptime guarantee", free: "—", pro: "—", business: "99.95%", enterprise: "99.99% custom" },
-    { label: "Dedicated VPC / Cloud", free: "—", pro: "—", business: "—", enterprise: "✓" },
-    { label: "On-Premises deployment", free: "—", pro: "—", business: "—", enterprise: "✓" },
-    { label: "Dedicated support tier", free: "Community", pro: "Email", business: "Priority", enterprise: "24x7 Priority" },
-  ]}
+  {
+    section: "Authentication & Limits", rows: [
+      { label: "Monthly Active Users (MAUs)", free: "100", pro: "1,000", business: "7,500", enterprise: "Unlimited" },
+      { label: "Face verification requests/mo", free: "250", pro: "7,500", business: "20,000", enterprise: "Unlimited" },
+      { label: "Face enrollment requests/mo", free: "100", pro: "1,000", business: "7,500", enterprise: "Unlimited" },
+      { label: "Passive liveness detection", free: "✓", pro: "✓", business: "✓", enterprise: "✓" },
+      { label: "Fingerprint authentication", free: "—", pro: "✓", business: "✓", enterprise: "✓" },
+      { label: "Multi-sensor trust engine", free: "—", pro: "✓", business: "✓", enterprise: "✓" },
+    ]
+  },
+  {
+    section: "Security & Operations", rows: [
+      { label: "NeoID & QR Identity", free: "✓", pro: "✓", business: "✓", enterprise: "✓" },
+      { label: "Webhook event notifications", free: "—", pro: "✓", business: "✓", enterprise: "✓" },
+      { label: "Audit logs", free: "—", pro: "✓", business: "✓", enterprise: "✓" },
+      { label: "Multi-project support", free: "—", pro: "✓", business: "✓ (Unlimited)", enterprise: "✓ (Unlimited)" },
+      { label: "Team management & RBAC", free: "—", pro: "—", business: "✓", enterprise: "✓" },
+    ]
+  },
+  {
+    section: "Infrastructure & SLAs", rows: [
+      { label: "SLA uptime guarantee", free: "—", pro: "—", business: "99.95%", enterprise: "99.99% custom" },
+      { label: "Dedicated VPC / Cloud", free: "—", pro: "—", business: "—", enterprise: "✓" },
+      { label: "On-Premises deployment", free: "—", pro: "—", business: "—", enterprise: "✓" },
+      { label: "Dedicated support tier", free: "Community", pro: "Email", business: "Priority", enterprise: "24x7 Priority" },
+    ]
+  }
 ];
 
 const COL_COLORS = { free: "#00E5A8", pro: "#00C2FF", business: "#3b82f6", enterprise: "#a78bfa" };
@@ -313,9 +319,9 @@ function PricingCompareTable() {
         <div className="grid grid-cols-12 gap-4 px-8 py-5.5 border border-white/[0.05] bg-white/[0.01] rounded-[22px] items-center mb-6">
           <div className="col-span-4 text-left text-white/35 font-mono uppercase tracking-widest text-[10px] font-bold">Feature</div>
           {(["Free", "Pro", "Business", "Enterprise"] as const).map((name) => (
-            <div 
-              key={name} 
-              className="col-span-2 text-center font-black text-[14.5px] font-sans tracking-tight" 
+            <div
+              key={name}
+              className="col-span-2 text-center font-black text-[14.5px] font-sans tracking-tight"
               style={{ color: COL_COLORS[name.toLowerCase() as keyof typeof COL_COLORS] }}
             >
               {name}
@@ -332,20 +338,20 @@ function PricingCompareTable() {
             </div>
 
             {section.rows.map((row, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className="grid grid-cols-12 gap-4 px-8 py-5.5 rounded-[22px] bg-[#09090b] border border-white/[0.04] hover:border-white/[0.08] hover:bg-white/[0.01] transition-all duration-200 items-center shadow-lg"
               >
                 <div className="col-span-4 text-left text-white/90 font-sans font-semibold text-[14px] tracking-tight">{row.label}</div>
-                
+
                 {(["free", "pro", "business", "enterprise"] as const).map((colName) => {
                   const val = row[colName];
                   const color = COL_COLORS[colName];
                   return (
                     <div key={colName} className="col-span-2 flex justify-center">
                       {val === "✓" ? (
-                        <div 
-                          className="inline-flex items-center justify-center w-6 h-6 rounded-full" 
+                        <div
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-full"
                           style={{ backgroundColor: `${color}10`, border: `1px solid ${color}30`, color }}
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="3.5" viewBox="0 0 24 24">
@@ -355,8 +361,8 @@ function PricingCompareTable() {
                       ) : val === "—" ? (
                         <div className="w-2 h-2 rounded-full bg-white/[0.04]" />
                       ) : (
-                        <span 
-                          className="px-3.5 py-1 text-[12px] font-mono font-bold rounded-lg" 
+                        <span
+                          className="px-3.5 py-1 text-[12px] font-mono font-bold rounded-lg"
                           style={{ backgroundColor: `${color}05`, border: `1px solid ${color}20`, color }}
                         >
                           {val}

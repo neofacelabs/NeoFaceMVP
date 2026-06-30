@@ -257,75 +257,54 @@ export default function Home() {
               </h2>
             </div>
 
-            <RevealOnScroll staggerChildren={0.12} className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <RevealOnScroll staggerChildren={0.08} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
               {[
-                { title: "Developers", desc: "Add biometric authentication to Next.js, React Native, or Flutter apps in minutes using our lightweight SDKs.", iconSrc: "/Icons/Developers.png", accent: "#00C2FF", glowHsl: "194 100 50" },
-                { title: "Banks", desc: "Prevent identity fraud, deepfakes, and account takeovers with enterprise-grade cryptographic validation layers.", iconSrc: "/Icons/Bank.png", accent: "#10b981", glowHsl: "160 85 45" },
-                { title: "Healthcare", desc: "Secure patient verification and medical record access while staying fully HIPAA and regional compliant.", iconSrc: "/Icons/Healthcare.png", accent: "#f43f5e", glowHsl: "350 90 60" },
-                { title: "Government", desc: "Issue and protect digital citizen identities with decentralized, zero-knowledge multi-modal biometrics.", iconSrc: "/Icons/Government.png", accent: "#a78bfa", glowHsl: "258 90 75" },
-                { title: "Universities", desc: "Manage classroom attendance, examinations, and campus credential authentication seamlessly.", iconSrc: "/Icons/Universities.png", accent: "#3b82f6", glowHsl: "217 90 60" },
-                { title: "Enterprises", desc: "Implement secure workforce access, eliminate credentials, and establish standard Zero-Trust logins.", iconSrc: "/Icons/Enterprises.png", accent: "#f59e0b", glowHsl: "38 90 55" }
+                { title: "Developers", desc: "Add biometric authentication to Next.js, React Native, or Flutter apps in minutes using our lightweight SDKs.", iconSrc: "/Icons/Developers.png", accent: "#00C2FF", glowHsl: "194 100 50", borderRadius: "2.5rem 12px 2.5rem 12px" },
+                { title: "Banks", desc: "Prevent identity fraud, deepfakes, and account takeovers with enterprise-grade cryptographic validation layers.", iconSrc: "/Icons/Bank.png", accent: "#10b981", glowHsl: "160 85 45", borderRadius: "12px 3rem 12px 3rem" },
+                { title: "Healthcare", desc: "Secure patient verification and medical record access while staying fully HIPAA and regional compliant.", iconSrc: "/Icons/Healthcare.png", accent: "#f43f5e", glowHsl: "350 90 60", borderRadius: "12px 3rem 12px 3rem" },
+                { title: "Government", desc: "Issue and protect digital citizen identities with decentralized, zero-knowledge multi-modal biometrics.", iconSrc: "/Icons/Government.png", accent: "#a78bfa", glowHsl: "258 90 75", borderRadius: "2.5rem 2.5rem 10px 2.5rem" },
+                { title: "Universities", desc: "Manage classroom attendance, examinations, and campus credential authentication seamlessly.", iconSrc: "/Icons/Universities.png", accent: "#3b82f6", glowHsl: "217 90 60", borderRadius: "2.5rem 12px 2.5rem 12px" },
+                { title: "Enterprises", desc: "Implement secure workforce access, eliminate credentials, and establish standard Zero-Trust logins.", iconSrc: "/Icons/Enterprises.png", accent: "#f59e0b", glowHsl: "38 90 55", borderRadius: "12px 3rem 12px 3rem" }
               ].map((sector, idx) => {
-                const gradient = `linear-gradient(90deg, transparent, ${sector.accent}, ${sector.accent}, transparent)`;
-
-                 return (
-                  <motion.div key={idx} className="trust-sector-card">
-                    <div className="trust-sector-card-content">
-                      
-                      {/* Back (Unhovered View: Ambient glow backdrop + Icon) */}
-                      <div className="trust-sector-card-back" style={{ "--glow-gradient": gradient } as React.CSSProperties}>
-                        <div className="trust-sector-card-back-inner flex items-center justify-center">
-                          {/* Ambient Soft Glow Backdrop */}
-                          <div 
-                            className="absolute w-[200px] h-[200px] rounded-full blur-[50px] opacity-25 pointer-events-none" 
-                            style={{ backgroundColor: sector.accent }} 
-                          />
+                return (
+                  <motion.div key={idx} whileHover={{ y: -6 }} className="h-full flex flex-col">
+                    <BorderGlow
+                      className="h-full transition-all duration-500"
+                      edgeSensitivity={25}
+                      glowColor={sector.glowHsl}
+                      backgroundColor="#09090b"
+                      borderRadius={sector.borderRadius}
+                      glowRadius={45}
+                      glowIntensity={0.8}
+                      colors={[sector.accent, `${sector.accent}88`, '#050505']}
+                      fillOpacity={0.15}
+                    >
+                      <div className="p-8 flex flex-col justify-between h-full relative z-10 min-h-[220px]">
+                        <div>
+                          <div className="flex items-center justify-between mb-6">
+                            <div className="p-2.5 bg-white/[0.03] border border-white/[0.08] w-fit rounded-2xl shadow-inner">
+                              <img src={sector.iconSrc} alt={sector.title} className="w-7 h-7 object-contain" />
+                            </div>
+                            <span className="font-mono text-[9.5px] uppercase tracking-[0.15em] px-3.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.05]" style={{ color: sector.accent }}>
+                              SECURE_STACK
+                            </span>
+                          </div>
                           
-                          {/* Giant 3D PNG Illustration */}
-                          <img 
-                            src={sector.iconSrc} 
-                            alt={sector.title} 
-                            className="w-80 h-80 object-contain relative z-20 transition-transform duration-500 group-hover:scale-105" 
-                          />
+                          <h4 className="text-[18px] font-extrabold text-white mb-3 tracking-tight leading-tight">{sector.title}</h4>
+                          <p className="text-[13.5px] text-white/50 leading-relaxed font-light font-sans">{sector.desc}</p>
+                        </div>
+
+                        <div className="mt-8 pt-4 border-t border-white/5 flex items-center justify-between">
+                          <span className="font-mono text-white/20 text-[10px]">NFL_SECTOR_VERIFY</span>
+                          <a href="/pricing" className="font-bold text-white hover:text-[#00E5A8] transition-colors flex items-center gap-1 font-sans text-[12.5px]">
+                            Explore Solution
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </a>
                         </div>
                       </div>
-
-                      {/* Front (Hovered View: Spacious description specifications) */}
-                      <div className="trust-sector-card-front">
-                        <div className="p-7 flex flex-col justify-between h-full">
-                          <div>
-                            <div className="flex items-center justify-between mb-4.5">
-                              <div className="font-mono font-bold uppercase tracking-[0.15em] px-3.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.05]" style={{ fontSize: '9.5px', color: sector.accent }}>
-                                SECURE_STACK
-                              </div>
-                              <img src={sector.iconSrc} alt={sector.title} className="w-8 h-8 object-contain" />
-                            </div>
-                            
-                            <div className="font-black text-white tracking-tight leading-tight mb-2.5" style={{ fontSize: '23px', lineHeight: '1.2' }}>
-                              {sector.title}
-                            </div>
-                            
-                            <p className="font-sans font-light leading-relaxed text-white/75" style={{ fontSize: '15px', lineHeight: '1.55' }}>
-                              {sector.desc}
-                            </p>
-                          </div>
-
-                          <div>
-                            <div className="w-full h-px bg-white/5 mb-3.5" />
-                            <div className="flex items-center justify-between">
-                              <span className="font-mono text-white/20" style={{ fontSize: '10px' }}>NFL_SECTOR_VERIFY</span>
-                              <a href="/pricing" className="font-bold text-white hover:text-[#00E5A8] transition-colors flex items-center gap-1 font-sans" style={{ fontSize: '12.5px' }}>
-                                Explore Solution
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                                </svg>
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
+                    </BorderGlow>
                   </motion.div>
                 );
               })}
