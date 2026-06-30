@@ -19,7 +19,7 @@ export default function Page() {
           >
             Authentication
           </div>
-          <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white mb-5 leading-tight">
+          <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-white mb-5 leading-tight">
             Supported Auth Modalities{" "}
             <span 
               className="text-transparent bg-clip-text bg-gradient-to-r"
@@ -48,24 +48,26 @@ export default function Page() {
             fillOpacity={0.12}
           >
             <div className="p-8 relative z-10">
-              <h2 className="text-lg font-bold text-white mb-4">Core Specifications & Guides</h2>
-              <div className="space-y-6 text-white/60 text-[13px] leading-relaxed font-light">
+              <h2 className="text-base font-bold text-white mb-4">Supported Biometric Channels</h2>
+              <div className="space-y-4 text-white/60 text-[13px] leading-relaxed font-light">
                 <p>
-                  Welcome to the official Supported Auth Modalities center. This module provides verified integrations, 
-                  architectural whitepapers, and operational tools designed for developer-centric deployment.
+                  NeoFace platform natively supports multi-factor biometric checks to balance speed, user friction, and security parameters.
                 </p>
-                <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                <div className="grid sm:grid-cols-3 gap-4 pt-2">
                   <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Overview</h3>
-                    <p className="text-[12px] text-white/40">
-                      Standard operational flows, interface declarations, and SDK schema mappings.
-                    </p>
+                    <div className="text-lg mb-2">📸</div>
+                    <h3 className="font-semibold text-white mb-1">Face Ingestion</h3>
+                    <p className="text-[11px] text-white/40">Passive 3D face mapping and liveness sweep checking to prevent photo presentation attacks.</p>
                   </div>
                   <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Integration Steps</h3>
-                    <p className="text-[12px] text-white/40">
-                      Configure your environment credentials, setup endpoint triggers, and check compliance rules.
-                    </p>
+                    <div className="text-lg mb-2">👁️</div>
+                    <h3 className="font-semibold text-white mb-1">Iris Match Core</h3>
+                    <p className="text-[11px] text-white/40">Standoff iris texture scanning for high-trust military and institutional access control.</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
+                    <div className="text-lg mb-2">👆</div>
+                    <h3 className="font-semibold text-white mb-1">Fingerprint</h3>
+                    <p className="text-[11px] text-white/40">Fast, hardware-bound device sensor integration (Touch ID, Windows Hello) for local validation.</p>
                   </div>
                 </div>
               </div>

@@ -19,7 +19,7 @@ export default function Page() {
           >
             Company Mission
           </div>
-          <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white mb-5 leading-tight">
+          <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-white mb-5 leading-tight">
             The NeoFace Manifesto{" "}
             <span 
               className="text-transparent bg-clip-text bg-gradient-to-r"
@@ -48,26 +48,17 @@ export default function Page() {
             fillOpacity={0.12}
           >
             <div className="p-8 relative z-10">
-              <h2 className="text-lg font-bold text-white mb-4">Core Specifications & Guides</h2>
-              <div className="space-y-6 text-white/60 text-[13px] leading-relaxed font-light">
+              <h2 className="text-base font-bold text-white mb-4">Our Core Philosophy</h2>
+              <div className="space-y-4 text-white/60 text-[13px] leading-relaxed font-light">
                 <p>
-                  Welcome to the official The NeoFace Manifesto center. This module provides verified integrations, 
-                  architectural whitepapers, and operational tools designed for developer-centric deployment.
+                  Security based on sharing secrets (passwords, PINs, OTP codes) is inherently broken. 
+                  If a credential is transmittable, it is stealable. 
                 </p>
-                <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Overview</h3>
-                    <p className="text-[12px] text-white/40">
-                      Standard operational flows, interface declarations, and SDK schema mappings.
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Integration Steps</h3>
-                    <p className="text-[12px] text-white/40">
-                      Configure your environment credentials, setup endpoint triggers, and check compliance rules.
-                    </p>
-                  </div>
-                </div>
+                <p>
+                  Our goal is to build an identity protocol that binds credentials to physical presence 
+                  without compromising user confidentiality. No centralized biometric image databases. 
+                  Biometric matching runs in isolated, hardware-backed secure enclaves, verifying presence mathematically.
+                </p>
               </div>
             </div>
           </BorderGlow>

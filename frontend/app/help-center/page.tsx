@@ -19,7 +19,7 @@ export default function Page() {
           >
             Support Hub
           </div>
-          <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white mb-5 leading-tight">
+          <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-white mb-5 leading-tight">
             Customer Help Center{" "}
             <span 
               className="text-transparent bg-clip-text bg-gradient-to-r"
@@ -48,24 +48,16 @@ export default function Page() {
             fillOpacity={0.12}
           >
             <div className="p-8 relative z-10">
-              <h2 className="text-lg font-bold text-white mb-4">Core Specifications & Guides</h2>
-              <div className="space-y-6 text-white/60 text-[13px] leading-relaxed font-light">
-                <p>
-                  Welcome to the official Customer Help Center center. This module provides verified integrations, 
-                  architectural whitepapers, and operational tools designed for developer-centric deployment.
-                </p>
-                <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Overview</h3>
-                    <p className="text-[12px] text-white/40">
-                      Standard operational flows, interface declarations, and SDK schema mappings.
-                    </p>
+              <h2 className="text-base font-bold text-white mb-4">Knowledge Base Quick Links</h2>
+              <div className="space-y-4 text-white/60 text-[13px] leading-relaxed font-light">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03] hover:border-white/[0.08] transition-all">
+                    <h3 className="font-semibold text-white mb-1">Device Support</h3>
+                    <p className="text-[12.5px] text-white/40">Camera configuration parameters, browser camera authorization troubleshooting, and OS-bound sensors settings.</p>
                   </div>
-                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Integration Steps</h3>
-                    <p className="text-[12px] text-white/40">
-                      Configure your environment credentials, setup endpoint triggers, and check compliance rules.
-                    </p>
+                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03] hover:border-white/[0.08] transition-all">
+                    <h3 className="font-semibold text-white mb-1">Billing & Limits</h3>
+                    <p className="text-[12.5px] text-white/40">Adding MAUs, adjusting verification quotas, overage billing credits, and payment methods support.</p>
                   </div>
                 </div>
               </div>

@@ -19,7 +19,7 @@ export default function Page() {
           >
             Resources
           </div>
-          <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white mb-5 leading-tight">
+          <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-white mb-5 leading-tight">
             Integration Guides{" "}
             <span 
               className="text-transparent bg-clip-text bg-gradient-to-r"
@@ -48,24 +48,21 @@ export default function Page() {
             fillOpacity={0.12}
           >
             <div className="p-8 relative z-10">
-              <h2 className="text-lg font-bold text-white mb-4">Core Specifications & Guides</h2>
-              <div className="space-y-6 text-white/60 text-[13px] leading-relaxed font-light">
-                <p>
-                  Welcome to the official Integration Guides center. This module provides verified integrations, 
-                  architectural whitepapers, and operational tools designed for developer-centric deployment.
-                </p>
-                <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-white/5">
+              <h2 className="text-base font-bold text-white mb-4">Regulatory Compliance Blueprints</h2>
+              <div className="space-y-4 text-white/60 text-[13px] leading-relaxed font-light">
+                <p>Configure your biometric architecture to align with security standard frameworks:</p>
+                <div className="grid sm:grid-cols-3 gap-4 pt-2">
                   <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Overview</h3>
-                    <p className="text-[12px] text-white/40">
-                      Standard operational flows, interface declarations, and SDK schema mappings.
-                    </p>
+                    <h3 className="font-semibold text-white mb-1">GDPR Mapping</h3>
+                    <p className="text-[11.5px] text-white/40">Learn how zero-knowledge processing complies with Article 9 requirements for special category biological data.</p>
                   </div>
                   <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Integration Steps</h3>
-                    <p className="text-[12px] text-white/40">
-                      Configure your environment credentials, setup endpoint triggers, and check compliance rules.
-                    </p>
+                    <h3 className="font-semibold text-white mb-1">SOC 2 Alignment</h3>
+                    <p className="text-[11.5px] text-white/40">Secure Audit trails setup, hardware enclave isolation logs, and database access logging templates.</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
+                    <h3 className="font-semibold text-white mb-1">FIDO2 Setup</h3>
+                    <p className="text-[11.5px] text-white/40">Linking webauthn credentials to NeoFace trust scores for multi-modal security assertions.</p>
                   </div>
                 </div>
               </div>

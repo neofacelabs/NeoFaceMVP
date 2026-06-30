@@ -19,7 +19,7 @@ export default function Page() {
           >
             API Reference
           </div>
-          <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white mb-5 leading-tight">
+          <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-white mb-5 leading-tight">
             REST API Specification{" "}
             <span 
               className="text-transparent bg-clip-text bg-gradient-to-r"
@@ -48,24 +48,32 @@ export default function Page() {
             fillOpacity={0.12}
           >
             <div className="p-8 relative z-10">
-              <h2 className="text-lg font-bold text-white mb-4">Core Specifications & Guides</h2>
-              <div className="space-y-6 text-white/60 text-[13px] leading-relaxed font-light">
+              <h2 className="text-base font-bold text-white mb-4">Core Endpoint Directory</h2>
+              <div className="space-y-4 text-white/60 text-[13px] leading-relaxed font-light">
                 <p>
-                  Welcome to the official REST API Specification center. This module provides verified integrations, 
-                  architectural whitepapers, and operational tools designed for developer-centric deployment.
+                  All request payloads must be encoded in JSON format and carry valid authorization tokens.
                 </p>
-                <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Overview</h3>
-                    <p className="text-[12px] text-white/40">
-                      Standard operational flows, interface declarations, and SDK schema mappings.
-                    </p>
+                <div className="space-y-3 pt-2">
+                  <div className="p-3.5 rounded-xl bg-black/45 border border-white/[0.04] flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">POST</span>
+                      <span className="font-mono text-[12px] text-white">/v1/identities/enroll</span>
+                    </div>
+                    <span className="text-[11px] text-white/45">Register a new biometric profile</span>
                   </div>
-                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Integration Steps</h3>
-                    <p className="text-[12px] text-white/40">
-                      Configure your environment credentials, setup endpoint triggers, and check compliance rules.
-                    </p>
+                  <div className="p-3.5 rounded-xl bg-black/45 border border-white/[0.04] flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">POST</span>
+                      <span className="font-mono text-[12px] text-white">/v1/identities/verify</span>
+                    </div>
+                    <span className="text-[11px] text-white/45">Verify live presence and credentials</span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-black/45 border border-white/[0.04] flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-neutral-500/10 text-neutral-400 border border-neutral-500/20">GET</span>
+                      <span className="font-mono text-[12px] text-white">/v1/sessions/:session_id</span>
+                    </div>
+                    <span className="text-[11px] text-white/45">Fetch verification session logs</span>
                   </div>
                 </div>
               </div>

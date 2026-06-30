@@ -19,7 +19,7 @@ export default function Page() {
           >
             Identity Protocol
           </div>
-          <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white mb-5 leading-tight">
+          <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-white mb-5 leading-tight">
             NeoID Decentralized Identity{" "}
             <span 
               className="text-transparent bg-clip-text bg-gradient-to-r"
@@ -48,26 +48,16 @@ export default function Page() {
             fillOpacity={0.12}
           >
             <div className="p-8 relative z-10">
-              <h2 className="text-lg font-bold text-white mb-4">Core Specifications & Guides</h2>
-              <div className="space-y-6 text-white/60 text-[13px] leading-relaxed font-light">
+              <h2 className="text-base font-bold text-white mb-4">NeoID Cryptographic Identity Layer</h2>
+              <div className="space-y-4 text-white/60 text-[13px] leading-relaxed font-light">
                 <p>
-                  Welcome to the official NeoID Decentralized Identity center. This module provides verified integrations, 
-                  architectural whitepapers, and operational tools designed for developer-centric deployment.
+                  NeoID allows users to anchor their digital profile directly on their biometrics without central registry reliance:
                 </p>
-                <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Overview</h3>
-                    <p className="text-[12px] text-white/40">
-                      Standard operational flows, interface declarations, and SDK schema mappings.
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Integration Steps</h3>
-                    <p className="text-[12px] text-white/40">
-                      Configure your environment credentials, setup endpoint triggers, and check compliance rules.
-                    </p>
-                  </div>
-                </div>
+                <ul className="space-y-2 pl-4 list-disc text-white/50 text-[12.5px]">
+                  <li><strong>Verifiable Credentials (VCs):</strong> Fully compliant with W3C standards, cryptographically signed by issuers.</li>
+                  <li><strong>Zero-Knowledge Identity Verification:</strong> Prove age or identity attributes without revealing raw personal parameters.</li>
+                  <li><strong>Sovereign Keys:</strong> Decentralized identifiers (DIDs) mapped to homomorphic enclave biometric hashes.</li>
+                </ul>
               </div>
             </div>
           </BorderGlow>

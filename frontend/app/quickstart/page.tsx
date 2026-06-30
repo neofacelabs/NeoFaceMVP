@@ -19,7 +19,7 @@ export default function Page() {
           >
             Developers
           </div>
-          <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white mb-5 leading-tight">
+          <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-white mb-5 leading-tight">
             Quick Start Guide{" "}
             <span 
               className="text-transparent bg-clip-text bg-gradient-to-r"
@@ -48,26 +48,16 @@ export default function Page() {
             fillOpacity={0.12}
           >
             <div className="p-8 relative z-10">
-              <h2 className="text-lg font-bold text-white mb-4">Core Specifications & Guides</h2>
-              <div className="space-y-6 text-white/60 text-[13px] leading-relaxed font-light">
-                <p>
-                  Welcome to the official Quick Start Guide center. This module provides verified integrations, 
-                  architectural whitepapers, and operational tools designed for developer-centric deployment.
-                </p>
-                <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Overview</h3>
-                    <p className="text-[12px] text-white/40">
-                      Standard operational flows, interface declarations, and SDK schema mappings.
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Integration Steps</h3>
-                    <p className="text-[12px] text-white/40">
-                      Configure your environment credentials, setup endpoint triggers, and check compliance rules.
-                    </p>
-                  </div>
-                </div>
+              <h2 className="text-base font-bold text-white mb-4">SDK Installation & Quick Code</h2>
+              <div className="space-y-4 text-white/60 text-[13px] leading-relaxed font-light">
+                <p>Install the official client SDK:</p>
+                <pre className="p-4 rounded-xl bg-black/45 border border-white/[0.04] text-[12px] font-mono text-emerald-400">
+                  npm install @neoface/sdk
+                </pre>
+                <p>Initialize and execute authentication:</p>
+                <pre className="p-4 rounded-xl bg-black/45 border border-white/[0.04] text-[12px] font-mono text-white/80 overflow-x-auto whitespace-pre">
+                  {`import { NeoFace } from '@neoface/sdk';\nconst nfl = new NeoFace({ apiKey: 'YOUR_KEY' });\n\nconst res = await nfl.verify({\n  userId: 'usr_1002',\n  modalities: ['face', 'liveness']\n});\nconsole.log(res.verified); // true`}
+                </pre>
               </div>
             </div>
           </BorderGlow>

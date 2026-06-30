@@ -19,7 +19,7 @@ export default function Page() {
           >
             Security
           </div>
-          <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white mb-5 leading-tight">
+          <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-white mb-5 leading-tight">
             Responsible Bug Disclosure{" "}
             <span 
               className="text-transparent bg-clip-text bg-gradient-to-r"
@@ -48,24 +48,21 @@ export default function Page() {
             fillOpacity={0.12}
           >
             <div className="p-8 relative z-10">
-              <h2 className="text-lg font-bold text-white mb-4">Core Specifications & Guides</h2>
-              <div className="space-y-6 text-white/60 text-[13px] leading-relaxed font-light">
+              <h2 className="text-base font-bold text-white mb-4">Vulnerability Program</h2>
+              <div className="space-y-4 text-white/60 text-[13px] leading-relaxed font-light">
                 <p>
-                  Welcome to the official Responsible Bug Disclosure center. This module provides verified integrations, 
-                  architectural whitepapers, and operational tools designed for developer-centric deployment.
+                  We welcome responsible research from ethical hackers. Submit bugs to <code>security@neoface.io</code>.
                 </p>
-                <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Overview</h3>
-                    <p className="text-[12px] text-white/40">
-                      Standard operational flows, interface declarations, and SDK schema mappings.
-                    </p>
+                <h3 className="font-semibold text-white mt-4 mb-2">Bounty Reward Levels</h3>
+                <div className="grid grid-cols-3 gap-3 font-mono text-[11px] text-center">
+                  <div className="p-2 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+                    <strong>Critical</strong><br />Up to $10,000
                   </div>
-                  <div className="p-4 rounded-xl bg-white/[0.01] border border-white/[0.03]">
-                    <h3 className="font-semibold text-white mb-1.5">Integration Steps</h3>
-                    <p className="text-[12px] text-white/40">
-                      Configure your environment credentials, setup endpoint triggers, and check compliance rules.
-                    </p>
+                  <div className="p-2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <strong>Medium</strong><br />Up to $2,500
+                  </div>
+                  <div className="p-2 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    <strong>Low</strong><br />Up to $500
                   </div>
                 </div>
               </div>
