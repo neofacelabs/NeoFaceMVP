@@ -82,7 +82,7 @@ export function MenuBar({ items, activeItem, onItemClick }: MenuBarProps) {
               <Icon className="w-[18px] h-[18px] stroke-[2.2]" />
             </div>
             
-            <span className={`relative z-10 font-mono text-[11px] uppercase tracking-wider transition-colors duration-300 ${
+            <span className={`relative z-10 font-sans text-[11px] uppercase tracking-wider font-semibold transition-colors duration-300 ${
               isActive ? "text-white" : "text-white/55 group-hover:text-white"
             }`}>
               {item.label}
