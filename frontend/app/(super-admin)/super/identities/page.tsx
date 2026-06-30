@@ -192,6 +192,23 @@ export default function IdentitiesPage() {
     }
   };
 
+  const handleUpdateUserRole = async (userId: string, role: string) => {
+    if (!userId) {
+      toast.error("User ID not found for this identity profile.");
+      return;
+    }
+    try {
+      await axios.patch("/api/admin/identities", { userId, role }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("bioid_access_token")}` }
+      });
+      toast.success(`User role successfully updated to ${role}.`);
+      fetchIdentities();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update user role.");
+    }
+  };
+
   // Client-side filtering & search
   const filtered = identities.filter((item: any) => {
     const matchesSearch = search
@@ -413,6 +430,27 @@ export default function IdentitiesPage() {
                           <DropdownMenuItem onClick={() => handleResetBiometrics(identity.id)} className="gap-2 text-xs focus:bg-white/5 focus:text-white">
                             <RefreshCw className="h-3.5 w-3.5 text-blue-400" />
                             Reset Biometrics
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateUserRole(identity.external_user_id, "member")}
+                            className="gap-2 text-xs focus:bg-white/5 focus:text-white"
+                          >
+                            <User className="h-3.5 w-3.5 text-sky-400" />
+                            Make Member
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateUserRole(identity.external_user_id, "admin")}
+                            className="gap-2 text-xs focus:bg-white/5 focus:text-white"
+                          >
+                            <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />
+                            Make Org Admin
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateUserRole(identity.external_user_id, "super_admin")}
+                            className="gap-2 text-xs focus:bg-white/5 focus:text-white"
+                          >
+                            <Building className="h-3.5 w-3.5 text-[#00E5A8]" />
+                            Make Super Admin
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDelete(identity.id)} className="gap-2 text-xs text-red-400 focus:bg-red-500/10 focus:text-red-400">
                             <Trash2 className="h-3.5 w-3.5" />
