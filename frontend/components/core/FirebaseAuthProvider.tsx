@@ -63,15 +63,17 @@ export function FirebaseAuthProvider({
   useEffect(() => {
     if (!hydrated) return;
 
-    const isPublicRoute =
-      pathname === "/login" ||
-      pathname === "/register" ||
-      pathname === "/forgot-password" ||
-      pathname === "/pricing" ||
-      pathname === "/about" ||
-      pathname === "/features" ||
-      pathname === "/" ||
-      pathname.startsWith("/api/");
+    const isProtectedRoute =
+      pathname === "/dashboard" ||
+      pathname.startsWith("/dashboard/") ||
+      pathname === "/me" ||
+      pathname.startsWith("/me/") ||
+      pathname === "/org-admin" ||
+      pathname.startsWith("/org-admin/") ||
+      pathname === "/super" ||
+      pathname.startsWith("/super/");
+
+    const isPublicRoute = !isProtectedRoute || pathname.startsWith("/api/");
 
     if (!isAuthenticated && !isPublicRoute) {
       router.replace("/login");
