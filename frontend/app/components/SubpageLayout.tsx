@@ -58,6 +58,34 @@ export default function SubpageLayout({ children }: SubpageLayoutProps) {
   else if (pathname.includes("/about")) activeNav = "About";
   return (
     <div className="webflow-page w-full relative min-h-screen bg-transparent text-white overflow-x-hidden selection:bg-white selection:text-black">
+      {/* Reset headings in subpage portal pages to normal sizes to override massive webflow templates */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        .webflow-page h1 {
+          font-size: 20px !important;
+          line-height: 1.2 !important;
+          font-weight: 800 !important;
+          letter-spacing: -0.02em !important;
+          margin-bottom: 12px !important;
+          text-transform: none !important;
+        }
+        .webflow-page h2 {
+          font-size: 15px !important;
+          line-height: 1.3 !important;
+          font-weight: 700 !important;
+          letter-spacing: -0.01em !important;
+          margin-bottom: 16px !important;
+          text-transform: none !important;
+        }
+        .webflow-page h3 {
+          font-size: 12px !important;
+          line-height: 1.4 !important;
+          font-weight: 600 !important;
+          letter-spacing: normal !important;
+          margin-bottom: 4px !important;
+          text-transform: none !important;
+        }
+      `}} />
+
       {/* ── ColorBends Animated WebGL Background ── */}
       <div className="fixed inset-0 z-[-20] pointer-events-none" style={{ opacity: 0.18 }}>
         <ColorBends
