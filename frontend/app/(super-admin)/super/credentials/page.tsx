@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useOrganizations } from "@/lib/api";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   UserPlus,
   Search,
@@ -36,7 +37,9 @@ import {
   EyeOff,
   ClipboardCheck,
   RefreshCw,
-  Clock
+  Clock,
+  MoreHorizontal,
+  Trash2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -97,6 +100,34 @@ export default function CredentialsPage() {
       toast.error("Failed to retrieve credentials registry.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleUpdateUserRole = async (userId: string, role: string) => {
+    try {
+      await axios.patch("/api/admin/identities", { userId, role }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("bioid_access_token")}` }
+      });
+      toast.success(`User role successfully updated to ${role}.`);
+      fetchIdentities();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update user role.");
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (confirm("Are you sure you want to delete this user completely? This will permanently delete their account and associated credentials.")) {
+      try {
+        await axios.delete(`/api/admin/identities?userId=${userId}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("bioid_access_token")}` }
+        });
+        toast.success("User successfully deleted.");
+        fetchIdentities();
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to delete user account.");
+      }
     }
   };
 
@@ -229,6 +260,7 @@ export default function CredentialsPage() {
                 <TableHead>Access Role</TableHead>
                 <TableHead>Biometrics</TableHead>
                 <TableHead>Created</TableHead>
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -289,6 +321,45 @@ export default function CredentialsPage() {
                     </TableCell>
                     <TableCell className="text-white/30 text-[11px]">
                       {safeFormatDistanceToNow(item.created_at)}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="flex h-7 w-7 items-center justify-center rounded-md text-white/25 hover:bg-white/[0.06] hover:text-white/60 transition-colors">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44 rounded-xl border border-white/[0.09] bg-[#0a0a0a] p-1">
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateUserRole(item.external_user_id, "member")}
+                            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-white/60 hover:bg-white/[0.05] hover:text-white cursor-pointer"
+                          >
+                            <User className="h-3.5 w-3.5" />
+                            Make Member
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateUserRole(item.external_user_id, "admin")}
+                            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-white/60 hover:bg-white/[0.05] hover:text-white cursor-pointer"
+                          >
+                            <ShieldAlert className="h-3.5 w-3.5" />
+                            Make Org Admin
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateUserRole(item.external_user_id, "super_admin")}
+                            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-white/60 hover:bg-white/[0.05] hover:text-white cursor-pointer"
+                          >
+                            <Building2 className="h-3.5 w-3.5" />
+                            Make Super Admin
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteUser(item.external_user_id)}
+                            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-red-500/80 hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete Account
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </motion.tr>
                 ))

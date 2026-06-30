@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import { authenticateRequest } from "@/lib/member/auth";
 
 export async function GET(req: Request) {
@@ -70,6 +70,71 @@ export async function GET(req: Request) {
     });
   } catch (err: any) {
     console.error("Error in /api/admin/identities:", err);
+    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const auth = await authenticateRequest(req);
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { userId, role } = body;
+    if (!userId || !role) {
+      return NextResponse.json({ error: "Missing userId or role" }, { status: 400 });
+    }
+
+    // Role mapping: member, admin, super_admin
+    const identityType = role; // member, admin, super_admin
+    const userRole = role === "super_admin" ? "admin" : "user";
+
+    await adminDb.collection("users").doc(userId).update({
+      role: userRole,
+      identity_type: identityType
+    });
+
+    return NextResponse.json({ success: true, userId, role });
+  } catch (err: any) {
+    console.error("Error in PATCH /api/admin/identities:", err);
+    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const auth = await authenticateRequest(req);
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get("userId");
+    if (!userId) {
+      return NextResponse.json({ error: "Missing userId query param" }, { status: 400 });
+    }
+
+    // 1. Delete from Firebase Authentication
+    try {
+      await adminAuth.deleteUser(userId);
+    } catch (authErr) {
+      console.warn(`User ${userId} not found in Firebase Auth (or already deleted)`, authErr);
+    }
+
+    // 2. Delete from Firestore users
+    await adminDb.collection("users").doc(userId).delete();
+
+    // 3. Delete matching identities
+    const identitiesQuery = await adminDb.collection("identities").where("external_user_id", "==", userId).get();
+    for (const doc of identitiesQuery.docs) {
+      await doc.ref.delete();
+    }
+
+    return NextResponse.json({ success: true, userId });
+  } catch (err: any) {
+    console.error("Error in DELETE /api/admin/identities:", err);
     return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
   }
 }

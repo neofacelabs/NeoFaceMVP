@@ -26,7 +26,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
-import { useOrganizations, useUpdateOrganization, useCreateOrganization } from "@/lib/api";
+import { useOrganizations, useUpdateOrganization, useCreateOrganization, useDeleteOrganization } from "@/lib/api";
 import { toast } from "sonner";
 
 const planColors: Record<string, string> = {
@@ -48,6 +48,19 @@ export default function OrganizationsPage() {
   const { data, isLoading, refetch } = useOrganizations(1, 100, undefined, search || undefined);
   const updateMutation = useUpdateOrganization();
   const createMutation = useCreateOrganization();
+  const deleteMutation = useDeleteOrganization();
+
+  const handleDeleteOrg = async (orgId: string) => {
+    if (confirm("Are you sure you want to delete this organization completely? All tenant workspace records will be affected.")) {
+      try {
+        await deleteMutation.mutateAsync(orgId);
+        toast.success("Organization deleted successfully");
+        refetch();
+      } catch (err) {
+        toast.error("Failed to delete organization");
+      }
+    }
+  };
 
   // Create Organization Form State
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
@@ -257,6 +270,13 @@ export default function OrganizationsPage() {
                         >
                           <Pause className="h-3.5 w-3.5" />
                           {org.status === "suspended" ? "Activate" : "Suspend"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteOrg(org.id)}
+                          className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-red-500/80 hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
