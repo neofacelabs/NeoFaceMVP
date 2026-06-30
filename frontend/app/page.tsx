@@ -508,7 +508,7 @@ export default function Home() {
                     <div key={idx} className="relative flex flex-col md:flex-row items-center md:justify-between w-full">
 
                       {/* Left Block Space on Desktop */}
-                      <div className={`w-full md:w-[45%] flex ${isLeft ? "md:justify-end" : "hidden md:flex"} pl-16 md:pl-0`}>
+                      <div className={`hidden md:flex w-full md:w-[45%] ${isLeft ? "md:justify-end" : ""} pl-16 md:pl-0`}>
                         {isLeft && (
                           <div className="text-left md:text-right pr-0 md:pr-8 space-y-2">
                             <h4 className="text-[16px] font-extrabold text-white font-sans">{step.title}</h4>
@@ -523,7 +523,7 @@ export default function Home() {
                       </div>
 
                       {/* Right Block Space on Desktop */}
-                      <div className={`w-full md:w-[45%] flex ${!isLeft ? "md:justify-start" : "hidden md:flex"} pl-16 md:pl-8`}>
+                      <div className={`hidden md:flex w-full md:w-[45%] ${!isLeft ? "md:justify-start" : ""} pl-16 md:pl-8`}>
                         {!isLeft && (
                           <div className="text-left space-y-2">
                             <h4 className="text-[16px] font-extrabold text-white font-sans">{step.title}</h4>
