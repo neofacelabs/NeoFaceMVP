@@ -109,6 +109,16 @@ export function FirebaseAuthProvider({
           fbUser.getIdToken()
             .then(async (idToken) => {
               try {
+                // Initialize NeoID and QR code profile in Firestore
+                try {
+                  const axios = (await import("axios")).default;
+                  await axios.post("/api/member/create", {}, {
+                    headers: { Authorization: `Bearer ${idToken}` }
+                  });
+                } catch (createErr) {
+                  console.error("NeoID profile auto-creation failed:", createErr);
+                }
+
                 const { data: tokens } = await authApi.googleSignIn(idToken);
                 setTokens(tokens.access_token, tokens.refresh_token);
                 const { data: user } = await authApi.me();

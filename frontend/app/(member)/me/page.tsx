@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { ChartCard } from "@/components/dashboard/ChartCard";
@@ -21,23 +21,90 @@ import {
   Download,
   RotateCcw,
   Loader2,
+  Copy,
+  Printer,
+  FileText,
+  Image as ImageIcon
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { authApi, biometricsApi, dashboardApi } from "@/lib/api";
+import axios from "axios";
+import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+function safeFormatDate(dateVal: any): string {
+  if (!dateVal) return "N/A";
+  
+  // If it's a Firestore Timestamp object
+  let parsedVal = dateVal;
+  if (dateVal && typeof dateVal === "object") {
+    if (typeof dateVal.seconds === "number") {
+      parsedVal = dateVal.seconds * 1000;
+    } else if (typeof dateVal._seconds === "number") {
+      parsedVal = dateVal._seconds * 1000;
+    }
+  }
+
+  try {
+    const d = new Date(parsedVal);
+    if (isNaN(d.getTime())) {
+      return "N/A";
+    }
+    return format(d, "MMM d, yyyy");
+  } catch (err) {
+    return "N/A";
+  }
+}
+
+function safeFormatDistanceToNow(dateVal: any): string {
+  if (!dateVal) return "recently";
+  
+  // If it's a Firestore Timestamp object
+  let parsedVal = dateVal;
+  if (dateVal && typeof dateVal === "object") {
+    if (typeof dateVal.seconds === "number") {
+      parsedVal = dateVal.seconds * 1000;
+    } else if (typeof dateVal._seconds === "number") {
+      parsedVal = dateVal._seconds * 1000;
+    }
+  }
+
+  try {
+    const d = new Date(parsedVal);
+    if (isNaN(d.getTime())) {
+      return "recently";
+    }
+    return formatDistanceToNow(d, { addSuffix: true });
+  } catch (err) {
+    return "recently";
+  }
+}
 
 export default function MemberIdentityPage() {
   const [profile, setProfile] = useState<any>(null);
   const [bioStatus, setBioStatus] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
       try {
         const [meRes, bioRes, logsRes] = await Promise.all([
-          authApi.me(),
+          axios.get("/api/member/profile", {
+            headers: { Authorization: `Bearer ${localStorage.getItem("bioid_access_token")}` }
+          }).catch((err) => {
+            console.warn("Failed to fetch local member profile, falling back to backend me():", err);
+            return authApi.me();
+          }),
           biometricsApi.getStatus(),
           dashboardApi.getLogs(1, 100).catch(() => ({ data: { logs: [] } })),
         ]);
@@ -65,17 +132,20 @@ export default function MemberIdentityPage() {
 
   const m = {
     id: profile?.id || "",
+    neoId: profile?.neoId || "NEO-PEND-INGX-1234",
+    qrCode: profile?.qrCode || "",
+    verificationLevel: profile?.verificationLevel || "VERIFIED",
     name: profile?.name || "Member User",
     email: profile?.email || "",
     role: profile?.role || "user",
-    status: (profile?.is_active ? "active" : "suspended") as "active" | "suspended",
-    created_at: profile?.created_at || new Date().toISOString(),
+    status: (profile?.status?.toLowerCase() === "suspended" || profile?.is_active === false ? "suspended" : "active") as "active" | "suspended",
+    created_at: profile?.createdAt || profile?.created_at || new Date().toISOString(),
     phone: profile?.phone || "Not linked",
     face_status: (bioStatus?.face?.enrolled ? "enrolled" : "pending") as "enrolled" | "pending",
     face_count: bioStatus?.face?.embedding_count || 0,
     fingerprint_status: (bioStatus?.fingerprint?.enrolled ? "enrolled" : "pending") as "enrolled" | "pending",
     fingerprint_count: bioStatus?.fingerprint?.template_count || 0,
-    enrolled_at: profile?.created_at || new Date().toISOString(),
+    enrolled_at: profile?.createdAt || profile?.created_at || new Date().toISOString(),
   };
 
   const recentAuthsMapped = logs.map((log: any) => ({
@@ -88,6 +158,67 @@ export default function MemberIdentityPage() {
     liveness: log.liveness_score ? log.liveness_score * 100 : undefined,
   }));
 
+  const handlePrintQR = () => {
+    if (!m.qrCode) return;
+    const win = window.open();
+    if (win) {
+      win.document.write(`
+        <html>
+          <head>
+            <title>Print QR Code - ${m.name}</title>
+            <style>
+              body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: system-ui, sans-serif; background-color: white; color: black; }
+              img { max-width: 300px; height: auto; border: 1px solid #ccc; padding: 10px; border-radius: 8px; }
+              h2 { margin-bottom: 5px; }
+              p { font-family: monospace; font-size: 16px; margin-top: 5px; color: #555; }
+            </style>
+          </head>
+          <body>
+            <h2>${m.name}</h2>
+            <img src="${m.qrCode}" />
+            <p>${m.neoId}</p>
+          </body>
+        </html>
+      `);
+      win.document.close();
+      win.focus();
+      setTimeout(() => {
+        win.print();
+        win.close();
+      }, 350);
+    }
+  };
+
+  const handleDownloadID = async (format: "pdf" | "svg") => {
+    try {
+      setDownloadingFormat(format);
+      const token = localStorage.getItem("bioid_access_token");
+      const res = await fetch(`/api/member/download-id?format=${format}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (!res.ok) throw new Error("Server error");
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `neoface_id_${m.neoId.toLowerCase()}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`ID Card downloaded as ${format.toUpperCase()}`);
+    } catch (err) {
+      console.error("ID download failed:", err);
+      toast.error("Failed to download ID Card");
+    } finally {
+      setDownloadingFormat(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -131,30 +262,79 @@ export default function MemberIdentityPage() {
           {/* Details grid */}
           <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
             {[
-              { label: "User ID", value: m.id.slice(0, 8) + "...", mono: true },
+              { label: "NeoID", value: m.neoId, mono: true, copyable: true },
               { label: "Role", value: m.role.toUpperCase(), mono: true },
               { label: "Phone", value: m.phone },
-              { label: "Enrolled", value: format(new Date(m.created_at), "MMM d, yyyy") },
+              { label: "Enrolled", value: safeFormatDate(m.created_at) },
             ].map((row) => (
-              <div key={row.label} className="flex items-start justify-between gap-2">
+              <div key={row.label} className="flex items-center justify-between gap-2">
                 <span className="text-[11px] text-white/30">{row.label}</span>
-                <span className={cn("text-right text-[11.5px] font-medium text-white/70", row.mono && "font-mono text-[10.5px]")}>
-                  {row.value}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("text-right text-[11.5px] font-medium text-white/70", row.mono && "font-mono text-[10.5px]")}>
+                    {row.value}
+                  </span>
+                  {row.copyable && (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(row.value);
+                        toast.success("NeoID copied to clipboard");
+                      }}
+                      className="text-white/35 hover:text-[#00E5A8] transition-colors p-0.5 rounded"
+                      title="Copy NeoID"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
 
           {/* Actions */}
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-[11px] border-white/10 text-white/50 hover:text-white hover:bg-white/[0.05]">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setQrModalOpen(true)}
+              className="h-8 gap-1.5 text-[11px] border-white/10 text-white/50 hover:text-white hover:bg-white/[0.05]"
+            >
               <QrCode className="h-3.5 w-3.5" />
               Show QR
             </Button>
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-[11px] border-white/10 text-white/50 hover:text-white hover:bg-white/[0.05]">
-              <Download className="h-3.5 w-3.5" />
-              Download ID
-            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!!downloadingFormat}
+                  className="h-8 gap-1.5 text-[11px] border-white/10 text-white/50 hover:text-white hover:bg-white/[0.05] cursor-pointer"
+                >
+                  {downloadingFormat ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5" />
+                  )}
+                  Download ID
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-[#0B0B0B]/95 border-white/10 backdrop-blur-xl text-white/80">
+                <DropdownMenuItem
+                  onClick={() => handleDownloadID("pdf")}
+                  className="gap-2 cursor-pointer hover:bg-white/[0.05] hover:text-[#00E5A8]"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>Download PDF Card</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleDownloadID("svg")}
+                  className="gap-2 cursor-pointer hover:bg-white/[0.05] hover:text-[#00E5A8]"
+                >
+                  <ImageIcon className="h-3.5 w-3.5" />
+                  <span>Download SVG Vector</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </motion.div>
 
@@ -203,7 +383,7 @@ export default function MemberIdentityPage() {
                     {bio.enrolled && (
                       <div className="mt-3 flex items-center gap-1.5 text-[10.5px] text-[#00E5A8]/60">
                         <CheckCircle2 className="h-3 w-3" />
-                        Enrolled {formatDistanceToNow(new Date(m.enrolled_at), { addSuffix: true })}
+                        Enrolled {safeFormatDistanceToNow(m.enrolled_at)}
                       </div>
                     )}
                     {!bio.enrolled && (
@@ -260,7 +440,7 @@ export default function MemberIdentityPage() {
                     <div className="shrink-0 text-right">
                       <StatusBadge variant="auth" status={auth.result} />
                       <p className="mt-0.5 text-[10px] text-white/20">
-                        {formatDistanceToNow(new Date(auth.timestamp), { addSuffix: true })}
+                        {safeFormatDistanceToNow(auth.timestamp)}
                       </p>
                     </div>
                   </motion.div>
@@ -270,6 +450,124 @@ export default function MemberIdentityPage() {
           </ChartCard>
         </div>
       </div>
+
+      {/* QR Code Modal - Premium Dark Glassmorphism Design */}
+      <AnimatePresence>
+        {qrModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setQrModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+
+            {/* Modal Body */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="relative overflow-hidden rounded-[24px] border border-white/10 bg-[#070707]/80 p-6 shadow-2xl backdrop-blur-2xl max-w-sm w-full mx-auto"
+            >
+              {/* Top luxury green radial glow */}
+              <div className="pointer-events-none absolute -top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-[#00E5A8]/[0.08] blur-3xl" />
+
+              {/* Close Button */}
+              <button
+                onClick={() => setQrModalOpen(false)}
+                className="absolute right-4 top-4 rounded-full p-1 text-white/30 hover:text-white hover:bg-white/[0.05] transition-colors"
+                title="Close Modal"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+
+              {/* Header Info */}
+              <div className="flex flex-col items-center mb-6 text-center">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#00E5A8]/10 border border-[#00E5A8]/20 text-[#00E5A8] mb-3 shadow-[0_0_20px_rgba(0,229,168,0.1)]">
+                  <CheckCircle2 className="h-5.5 w-5.5" />
+                </div>
+                <h3 className="text-base font-bold text-white tracking-tight leading-none mb-1.5">{m.name}</h3>
+                <div className="flex items-center gap-1.5 justify-center">
+                  <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#00E5A8] bg-[#00E5A8]/8 border border-[#00E5A8]/20 px-2.5 py-0.5 rounded-full">
+                    {m.verificationLevel}
+                  </span>
+                </div>
+              </div>
+
+              {/* Large QR Display */}
+              <div className="flex justify-center mb-6">
+                <div className="relative rounded-2xl border border-white/5 bg-white/[0.015] p-4 shadow-2xl">
+                  {m.qrCode ? (
+                    <img
+                      src={m.qrCode}
+                      alt="NeoID QR Code"
+                      width={200}
+                      height={200}
+                      className="rounded-lg bg-white p-1 shadow-md"
+                    />
+                  ) : (
+                    <div className="flex h-[200px] w-[200px] items-center justify-center text-white/40">
+                      <Loader2 className="h-6 w-6 animate-spin text-[#00E5A8]" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Identity Display & Copy */}
+              <div className="text-center mb-6">
+                <p className="text-[9px] text-white/30 font-bold tracking-widest mb-1.5">PERMANENT DIGITAL IDENTITY</p>
+                <div className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/5 bg-white/[0.025] px-3.5 py-2 font-mono text-sm font-semibold text-white/90 shadow-inner">
+                  <span>{m.neoId}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(m.neoId);
+                      toast.success("NeoID copied");
+                    }}
+                    className="text-white/30 hover:text-[#00E5A8] transition-colors p-0.5"
+                    title="Copy NeoID"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (!m.qrCode) return;
+                    const link = document.createElement("a");
+                    link.href = m.qrCode;
+                    link.download = `neoid_qr_${m.neoId.toLowerCase()}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    toast.success("QR Code downloaded");
+                  }}
+                  className="h-8.5 gap-1.5 text-[11px] border-white/10 text-white/60 hover:text-white hover:bg-white/[0.05]"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download QR
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrintQR}
+                  className="h-8.5 gap-1.5 text-[11px] border-white/10 text-white/60 hover:text-white hover:bg-white/[0.05]"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Print QR
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
