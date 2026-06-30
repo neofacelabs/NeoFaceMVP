@@ -417,3 +417,4 @@ export * from "./api/settings";
 export * from "./api/sites";
 export * from "./api/access-zones";
 export * from "./api/roles";
+export * from "./api/analytics";

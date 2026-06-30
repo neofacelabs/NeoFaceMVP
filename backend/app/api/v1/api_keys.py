@@ -81,3 +81,17 @@ async def revoke_api_key(
 ) -> ApiKeyResponse:
     svc = ApiKeyService(db)
     return await svc.revoke_key(key_id, ctx.org_id)
+
+
+@router.delete(
+    "/{key_id}",
+    response_model=ApiKeyResponse,
+    summary="Revoke/Delete an API key",
+)
+async def delete_api_key(
+    key_id: uuid.UUID,
+    ctx: OrgContext = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
+) -> ApiKeyResponse:
+    svc = ApiKeyService(db)
+    return await svc.revoke_key(key_id, ctx.org_id)

@@ -57,11 +57,15 @@ async def get_org_context(
 
     # ── Branch 1: API Key ─────────────────────────────────────────────────────
     if api_key:
-        return await _resolve_api_key(api_key, db)
+        ctx = await _resolve_api_key(api_key, db)
+        request.state.org_context = ctx
+        return ctx
 
     # ── Branch 2: JWT Bearer ──────────────────────────────────────────────────
     if token:
-        return await _resolve_jwt(token, db)
+        ctx = await _resolve_jwt(token, db)
+        request.state.org_context = ctx
+        return ctx
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

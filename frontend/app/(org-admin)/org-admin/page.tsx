@@ -17,6 +17,7 @@ import { useSites } from "@/lib/api/sites";
 import { useIdentities } from "@/lib/api/identities";
 import { useDevices } from "@/lib/api/devices";
 import { useAuthLogs, useAuthStats } from "@/lib/api/authentication";
+import { useAnalyticsUsage, useAnalyticsOverview } from "@/lib/api/analytics";
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -49,7 +50,8 @@ export default function OrgAdminPage({
   const { data: identitiesData } = useIdentities(1, 100);
   const { data: devicesData } = useDevices(1, 100);
   const { data: authLogsData } = useAuthLogs(1, 5);
-  const { data: authStatsData } = useAuthStats(30);
+  const { data: analyticsOverview } = useAnalyticsOverview(30);
+  const { data: usageData } = useAnalyticsUsage(30);
 
   const projects = projectsData?.items || [];
   const sites = sitesData?.items || [];
@@ -61,18 +63,23 @@ export default function OrgAdminPage({
     members: identitiesCount,
     projects: projects.length,
     devices: devicesCount,
-    auths: authStatsData?.total_authentications || 0,
+    auths: analyticsOverview?.total_requests || 0,
   };
 
-  // Build daily trend list for chart from stats
-  const chartData = [
-    { date: "Day 1", auths: Math.round(stats.auths * 0.1) },
-    { date: "Day 5", auths: Math.round(stats.auths * 0.25) },
-    { date: "Day 10", auths: Math.round(stats.auths * 0.4) },
-    { date: "Day 15", auths: Math.round(stats.auths * 0.6) },
-    { date: "Day 20", auths: Math.round(stats.auths * 0.8) },
-    { date: "Day 30", auths: stats.auths }
-  ];
+  // Format daily trend list dynamically from actual usage records
+  const chartData = usageData && usageData.length > 0
+    ? usageData.map((d: any) => ({
+        date: new Date(d.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+        auths: d.request_count,
+      }))
+    : [
+        { date: "Day 1", auths: 0 },
+        { date: "Day 5", auths: 0 },
+        { date: "Day 10", auths: 0 },
+        { date: "Day 15", auths: 0 },
+        { date: "Day 20", auths: 0 },
+        { date: "Day 30", auths: 0 }
+      ];
 
   const activity = recentLogs.map((log: any) => ({
     id: log.id,
@@ -105,8 +112,8 @@ export default function OrgAdminPage({
         {[
           { label: "Total Members", value: stats.members },
           { label: "Active Projects", value: stats.projects, color: "accent" as const },
-          { label: "Total Devices", value: stats.devices, sub_label: `${stats.devices} online` },
-          { label: "Auth / 30 days", value: stats.auths, color: "success" as const },
+          { label: "API Requests / 30d", value: analyticsOverview?.total_requests || 0 },
+          { label: "Success Rate", value: `${(analyticsOverview?.success_rate || 0).toFixed(1)}%`, sub_label: `Avg Latency: ${Math.round(analyticsOverview?.avg_latency_ms || 0)}ms`, color: "success" as const },
         ].map((kpi, i) => <KPICard key={kpi.label} {...kpi} index={i} />)}
       </KPIGrid>
 

@@ -379,6 +379,26 @@ InsightFace • ArcFace • MediaPipe • FastAPI • PostgreSQL • Redis • C
         response = await call_next(request)
         process_time = (time.perf_counter() - start) * 1000
         response.headers["X-Process-Time-Ms"] = f"{process_time:.2f}"
+        
+        # Log request usage metrics to Firestore
+        try:
+            org_context = getattr(request.state, "org_context", None)
+            if org_context:
+                from app.core.database import _get_firestore_client
+                from app.repositories.usage_repository import UsageRepository
+                db = _get_firestore_client()
+                repo = UsageRepository(db)
+                await repo.upsert_increment(
+                    org_id=org_context.org_id,
+                    endpoint=request.url.path,
+                    success=response.status_code < 400,
+                    latency_ms=process_time,
+                    app_id=org_context.app_id,
+                )
+        except Exception as e:
+            from app.core.logging import logger
+            logger.warning(f"Failed to log API usage statistics: {e}")
+            
         return response
 
     # ── Global exception handler ──────────────────────────────────────────────
