@@ -146,7 +146,7 @@ export default function Home() {
           {isAuthenticated ? (
             <Link
               href="/dashboard"
-              className="relative overflow-hidden group inline-flex items-center justify-center px-5 py-2.5 bg-white/10 rounded-full text-[11px] font-sans tracking-wider uppercase transition-all duration-300 border border-white/10 hover:border-[#00E5A8]/50"
+              className="relative overflow-hidden group inline-flex items-center justify-center px-5 py-2.5 bg-white/10 rounded-full text-[11px] font-fellix tracking-wider uppercase transition-all duration-300 border border-white/10 hover:border-[#00E5A8]/50"
             >
               <span className="relative z-10 transition-colors duration-300 group-hover:text-black font-semibold">Dashboard</span>
               <span className="absolute inset-0 z-0 bg-gradient-to-r from-[#00E5A8] to-[#00C2FF] scale-x-0 origin-right transition-transform duration-500 ease-out group-hover:scale-x-100 group-hover:origin-left" />
@@ -155,13 +155,13 @@ export default function Home() {
             <div className="flex items-center gap-5">
               <Link
                 href="/login"
-                className="text-[11px] font-sans tracking-wider uppercase text-white/60 hover:text-white transition-colors font-semibold px-2 py-1"
+                className="text-[11px] font-fellix tracking-wider uppercase text-white/60 hover:text-white transition-colors font-semibold px-2 py-1"
               >
                 Log In
               </Link>
               <Link
                 href="/register"
-                className="relative overflow-hidden group inline-flex items-center justify-center px-5 py-2.5 bg-white/10 rounded-full text-[11px] font-sans tracking-wider uppercase transition-all duration-300 border border-white/10 hover:border-[#00E5A8]/50"
+                className="relative overflow-hidden group inline-flex items-center justify-center px-5 py-2.5 bg-white/10 rounded-full text-[11px] font-fellix tracking-wider uppercase transition-all duration-300 border border-white/10 hover:border-[#00E5A8]/50"
               >
                 <span className="relative z-10 transition-colors duration-300 group-hover:text-black font-semibold">Sign Up</span>
                 <span className="absolute inset-0 z-0 bg-gradient-to-r from-[#00E5A8] to-[#00C2FF] scale-x-0 origin-right transition-transform duration-500 ease-out group-hover:scale-x-100 group-hover:origin-left" />

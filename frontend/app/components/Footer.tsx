@@ -86,25 +86,25 @@ export function Footer() {
           {/* Column 2: Product */}
           <div className="flex flex-col gap-3 items-start text-left nfl-footer-column">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5A8] uppercase">Product</span>
-            <ul className="flex flex-col gap-2 text-[12.5px] font-sans font-light text-white/45">
+            <ul className="flex flex-col gap-2 text-[12.5px] font-fellix font-light text-white/45">
               <li><Link href="/features" className="hover:text-white transition-colors">Features</Link></li>
               <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
-              <li><Link href="/features" className="hover:text-white transition-colors">Documentation</Link></li>
-              <li><Link href="/features" className="hover:text-white transition-colors">API Reference</Link></li>
-              <li><Link href="/features" className="hover:text-white transition-colors">Authentication Methods</Link></li>
-              <li><Link href="/features" className="hover:text-white transition-colors">NeoID</Link></li>
-              <li><Link href="/features" className="hover:text-white transition-colors">Trust Engine</Link></li>
+              <li><Link href="/docs" className="hover:text-white transition-colors">Documentation</Link></li>
+              <li><Link href="/api-reference" className="hover:text-white transition-colors">API Reference</Link></li>
+              <li><Link href="/auth-methods" className="hover:text-white transition-colors">Authentication Methods</Link></li>
+              <li><Link href="/neoid" className="hover:text-white transition-colors">NeoID</Link></li>
+              <li><Link href="/trust-engine" className="hover:text-white transition-colors">Trust Engine</Link></li>
             </ul>
           </div>
 
           {/* Column 3: Developers */}
           <div className="flex flex-col gap-3 items-start text-left nfl-footer-column">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5A8] uppercase">Developers</span>
-            <ul className="flex flex-col gap-2 text-[12.5px] font-sans font-light text-white/45">
-              <li><Link href="/features" className="hover:text-white transition-colors">Quick Start</Link></li>
-              <li><Link href="/features" className="hover:text-white transition-colors">API Documentation</Link></li>
-              <li><Link href="/features" className="hover:text-white transition-colors">Webhooks</Link></li>
-              <li><Link href="/features" className="hover:text-white transition-colors">Rate Limits</Link></li>
+            <ul className="flex flex-col gap-2 text-[12.5px] font-fellix font-light text-white/45">
+              <li><Link href="/quickstart" className="hover:text-white transition-colors">Quick Start</Link></li>
+              <li><Link href="/api-documentation" className="hover:text-white transition-colors">API Documentation</Link></li>
+              <li><Link href="/webhooks" className="hover:text-white transition-colors">Webhooks</Link></li>
+              <li><Link href="/rate-limits" className="hover:text-white transition-colors">Rate Limits</Link></li>
               <li className="flex items-center gap-1.5">
                 <span className="hover:text-white transition-colors">SDKs</span>
                 <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-white/35 uppercase">Soon</span>
@@ -115,46 +115,46 @@ export function Footer() {
           {/* Column 4: Company */}
           <div className="flex flex-col gap-3 items-start text-left nfl-footer-column">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5A8] uppercase">Company</span>
-            <ul className="flex flex-col gap-2 text-[12.5px] font-sans font-light text-white/45">
+            <ul className="flex flex-col gap-2 text-[12.5px] font-fellix font-light text-white/45">
               <li><Link href="/about" className="hover:text-white transition-colors">About</Link></li>
-              <li><Link href="/#manifesto" className="hover:text-white transition-colors">Manifesto</Link></li>
-              <li><a href="mailto:contact@neoface.io" className="hover:text-white transition-colors">Contact</a></li>
+              <li><Link href="/manifesto" className="hover:text-white transition-colors">Manifesto</Link></li>
+              <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
             </ul>
           </div>
 
           {/* Column 5: Resources */}
           <div className="flex flex-col gap-3 items-start text-left nfl-footer-column">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5A8] uppercase">Resources</span>
-            <ul className="flex flex-col gap-2 text-[12.5px] font-sans font-light text-white/45">
-              <li><Link href="/features" className="hover:text-white transition-colors">Help Center</Link></li>
-              <li><Link href="/pricing#faq" className="hover:text-white transition-colors">FAQ</Link></li>
-              <li><Link href="/features" className="hover:text-white transition-colors">Guides</Link></li>
-              <li><Link href="/features" className="hover:text-white transition-colors">Tutorials</Link></li>
+            <ul className="flex flex-col gap-2 text-[12.5px] font-fellix font-light text-white/45">
+              <li><Link href="/help-center" className="hover:text-white transition-colors">Help Center</Link></li>
+              <li><Link href="/faq" className="hover:text-white transition-colors">FAQ</Link></li>
+              <li><Link href="/guides" className="hover:text-white transition-colors">Guides</Link></li>
+              <li><Link href="/tutorials" className="hover:text-white transition-colors">Tutorials</Link></li>
             </ul>
           </div>
 
           {/* Column 6: Security */}
           <div className="flex flex-col gap-3 items-start text-left nfl-footer-column">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5A8] uppercase">Security</span>
-            <ul className="flex flex-col gap-2 text-[12.5px] font-sans font-light text-white/45">
-              <li><Link href="/about" className="hover:text-white transition-colors">Security Overview</Link></li>
-              <li><Link href="/about" className="hover:text-white transition-colors">Infrastructure</Link></li>
-              <li><Link href="/about" className="hover:text-white transition-colors">Encryption</Link></li>
-              <li><Link href="/about" className="hover:text-white transition-colors">Responsible Disclosure</Link></li>
-              <li><Link href="/about" className="hover:text-white transition-colors">Compliance</Link></li>
-              <li><Link href="/about" className="hover:text-white transition-colors">Trust Center</Link></li>
+            <ul className="flex flex-col gap-2 text-[12.5px] font-fellix font-light text-white/45">
+              <li><Link href="/security" className="hover:text-white transition-colors">Security Overview</Link></li>
+              <li><Link href="/security/infrastructure" className="hover:text-white transition-colors">Infrastructure</Link></li>
+              <li><Link href="/security/encryption" className="hover:text-white transition-colors">Encryption</Link></li>
+              <li><Link href="/security/disclosure" className="hover:text-white transition-colors">Responsible Disclosure</Link></li>
+              <li><Link href="/security/compliance" className="hover:text-white transition-colors">Compliance</Link></li>
+              <li><Link href="/security/trust-center" className="hover:text-white transition-colors">Trust Center</Link></li>
             </ul>
           </div>
 
           {/* Column 7: Legal */}
           <div className="flex flex-col gap-3 items-start text-left nfl-footer-column">
             <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5A8] uppercase">Legal</span>
-            <ul className="flex flex-col gap-2 text-[12.5px] font-sans font-light text-white/45">
-              <li><Link href="/about" className="hover:text-white transition-colors">Privacy Policy</Link></li>
-              <li><Link href="/about" className="hover:text-white transition-colors">Terms of Service</Link></li>
-              <li><Link href="/about" className="hover:text-white transition-colors">Cookie Policy</Link></li>
-              <li><Link href="/about" className="hover:text-white transition-colors">Refund Policy</Link></li>
-              <li><Link href="/about" className="hover:text-white transition-colors">Security & Compliance</Link></li>
+            <ul className="flex flex-col gap-2 text-[12.5px] font-fellix font-light text-white/45">
+              <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
+              <li><Link href="/cookie" className="hover:text-white transition-colors">Cookie Policy</Link></li>
+              <li><Link href="/refund" className="hover:text-white transition-colors">Refund Policy</Link></li>
+              <li><Link href="/security-compliance" className="hover:text-white transition-colors">Security & Compliance</Link></li>
             </ul>
           </div>
 
