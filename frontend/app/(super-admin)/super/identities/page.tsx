@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import {
@@ -12,40 +12,148 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { useIdentities, useUpdateIdentity, useResetBiometrics, useDeleteIdentity } from "@/lib/api";
-import { Search, MoreHorizontal, Pause, Play, Trash2, User, RefreshCw, KeyRound } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { StatusBadge } from "@/components/dashboard/StatusBadge";
+import { useUpdateIdentity, useResetBiometrics, useDeleteIdentity } from "@/lib/api";
+import {
+  Search,
+  MoreHorizontal,
+  Pause,
+  Play,
+  Trash2,
+  User,
+  RefreshCw,
+  Loader2,
+  Clock,
+  Phone,
+  Mail,
+  Building,
+  ShieldAlert,
+  ShieldCheck,
+  Fingerprint,
+  Camera,
+  Eye,
+  Info
+} from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import axios from "axios";
+
+function safeFormatDate(dateVal: any): string {
+  if (!dateVal) return "N/A";
+  let parsedVal = dateVal;
+  if (dateVal && typeof dateVal === "object") {
+    if (typeof dateVal.seconds === "number") {
+      parsedVal = dateVal.seconds * 1000;
+    } else if (typeof dateVal._seconds === "number") {
+      parsedVal = dateVal._seconds * 1000;
+    }
+  }
+  try {
+    const d = new Date(parsedVal);
+    if (isNaN(d.getTime())) return "N/A";
+    return format(d, "MMM d, yyyy h:mm a");
+  } catch (err) {
+    return "N/A";
+  }
+}
+
+function safeFormatDistanceToNow(dateVal: any): string {
+  if (!dateVal) return "recently";
+  let parsedVal = dateVal;
+  if (dateVal && typeof dateVal === "object") {
+    if (typeof dateVal.seconds === "number") {
+      parsedVal = dateVal.seconds * 1000;
+    } else if (typeof dateVal._seconds === "number") {
+      parsedVal = dateVal._seconds * 1000;
+    }
+  }
+  try {
+    const d = new Date(parsedVal);
+    if (isNaN(d.getTime())) return "recently";
+    return formatDistanceToNow(d, { addSuffix: true });
+  } catch (err) {
+    return "recently";
+  }
+}
 
 export default function IdentitiesPage() {
-  const [search, setSearch] = React.useState("");
-  const [page, setPage] = React.useState(1);
-  const [statusFilter, setStatusFilter] = React.useState("");
-  const [typeFilter, setTypeFilter] = React.useState("");
-  const [enrollFilter, setEnrollFilter] = React.useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [enrollFilter, setEnrollFilter] = useState("");
 
-  const { data, isLoading, refetch } = useIdentities(
-    page,
-    50,
-    undefined,
-    undefined,
-    enrollFilter || undefined,
-    statusFilter || undefined,
-    typeFilter || undefined,
-    search || undefined
-  );
+  const [identities, setIdentities] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const updateMutation = useUpdateIdentity();
   const resetBiometricsMutation = useResetBiometrics();
   const deleteMutation = useDeleteIdentity();
 
+  // Selection states for detailed inspector
+  const [selectedIdentity, setSelectedIdentity] = useState<any | null>(null);
+  const [firestoreProfile, setFirestoreProfile] = useState<any | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  const fetchIdentities = async () => {
+    try {
+      setIsLoading(true);
+      const res = await axios.get("/api/admin/identities", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("bioid_access_token")}` }
+      });
+      setIdentities(res.data?.items || []);
+    } catch (err) {
+      console.error("Failed to load identities:", err);
+      toast.error("Failed to retrieve identities directory.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchIdentities();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedIdentity) {
+      setFirestoreProfile(null);
+      return;
+    }
+
+    async function fetchProfile() {
+      try {
+        setLoadingProfile(true);
+        const res = await axios.get(`/api/admin/identity-profile?external_user_id=${selectedIdentity.external_user_id}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("bioid_access_token")}` }
+        });
+        setFirestoreProfile(res.data?.profile || null);
+      } catch (err) {
+        console.error("Failed to load user Firestore profile:", err);
+      } finally {
+        setLoadingProfile(false);
+      }
+    }
+    fetchProfile();
+  }, [selectedIdentity]);
+
   const handleUpdateStatus = async (identityId: string, status: string) => {
     try {
       await updateMutation.mutateAsync({ identityId, payload: { status } });
       toast.success(`Identity status updated to ${status}`);
+      fetchIdentities();
+      if (selectedIdentity && selectedIdentity.id === identityId) {
+        setSelectedIdentity((prev: any) => ({ ...prev, status }));
+      }
     } catch (err) {
       toast.error("Failed to update status");
     }
@@ -56,6 +164,17 @@ export default function IdentitiesPage() {
     try {
       await resetBiometricsMutation.mutateAsync(identityId);
       toast.success("Identity biometrics reset successfully");
+      fetchIdentities();
+      // Reload details if open
+      if (selectedIdentity && selectedIdentity.id === identityId) {
+        setSelectedIdentity((prev: any) => ({
+          ...prev,
+          face_embedding_id: null,
+          is_fingerprint_enrolled: false,
+          is_iris_enrolled: false,
+          enrollment_status: "pending"
+        }));
+      }
     } catch (err) {
       toast.error("Failed to reset biometrics");
     }
@@ -66,13 +185,33 @@ export default function IdentitiesPage() {
     try {
       await deleteMutation.mutateAsync(identityId);
       toast.success("Identity deleted successfully");
+      setSelectedIdentity(null);
+      fetchIdentities();
     } catch (err) {
       toast.error("Failed to delete identity");
     }
   };
 
-  const identities = data?.items || [];
-  const total = data?.total || 0;
+  // Client-side filtering & search
+  const filtered = identities.filter((item: any) => {
+    const matchesSearch = search
+      ? item.external_user_id.toLowerCase().includes(search.toLowerCase()) ||
+        item.name?.toLowerCase().includes(search.toLowerCase()) ||
+        item.email?.toLowerCase().includes(search.toLowerCase()) ||
+        item.neoId?.toLowerCase().includes(search.toLowerCase())
+      : true;
+
+    const matchesType = typeFilter ? item.identity_type === typeFilter : true;
+    const matchesEnroll = enrollFilter ? item.enrollment_status === enrollFilter : true;
+    const matchesStatus = statusFilter ? item.status === statusFilter : true;
+
+    return matchesSearch && matchesType && matchesEnroll && matchesStatus;
+  });
+
+  const total = filtered.length;
+  const faceEnrolledCount = filtered.filter((i: any) => i.face_embedding_id).length;
+  const fingerprintEnrolledCount = filtered.filter((i: any) => i.is_fingerprint_enrolled).length;
+  const activeCount = filtered.filter((i: any) => i.status === "active").length;
 
   return (
     <div className="space-y-6">
@@ -86,9 +225,9 @@ export default function IdentitiesPage() {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
           { label: "Total Identities", value: total, color: "text-white" },
-          { label: "Face Enrolled", value: identities.filter((i: any) => i.enrollment_status === "enrolled").length, color: "text-[#00E5A8]" },
-          { label: "Fingerprint Enrolled", value: identities.filter((i: any) => i.is_fingerprint_enrolled).length, color: "text-[#38BDF8]" },
-          { label: "Active", value: identities.filter((i: any) => i.status === "active").length, color: "text-[#00E5A8]" },
+          { label: "Face Enrolled", value: faceEnrolledCount, color: "text-[#00E5A8]" },
+          { label: "Fingerprint Enrolled", value: fingerprintEnrolledCount, color: "text-[#38BDF8]" },
+          { label: "Active", value: activeCount, color: "text-[#00E5A8]" },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}
@@ -112,7 +251,7 @@ export default function IdentitiesPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search identities (external user ID)..."
+              placeholder="Search identities (external user ID, name, email, neoID)..."
               className="flex-1 bg-transparent text-sm text-white placeholder:text-white/25 focus:outline-none"
             />
           </div>
@@ -157,9 +296,10 @@ export default function IdentitiesPage() {
 
         {isLoading ? (
           <div className="flex h-32 items-center justify-center text-sm text-white/40">
-            Loading identities...
+            <Loader2 className="h-5 w-5 animate-spin text-[#00E5A8] mr-2 inline" />
+            Loading identities directory...
           </div>
-        ) : identities.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-sm text-white/40">
             No identities found matching the filters.
           </div>
@@ -167,28 +307,41 @@ export default function IdentitiesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>External User ID</TableHead>
+                <TableHead>External User ID / Name</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Enrollment Status</TableHead>
                 <TableHead>Key Status</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-[100px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {identities.map((identity: any) => (
-                <TableRow key={identity.id}>
+              {filtered.map((identity: any) => (
+                <TableRow 
+                  key={identity.id}
+                  onClick={() => setSelectedIdentity(identity)}
+                  className="cursor-pointer hover:bg-white/[0.015] transition-colors group"
+                >
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5">
-                        <User className="h-4 w-4 text-white/45" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 shrink-0 overflow-hidden">
+                        {identity.photoURL ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={identity.photoURL} alt={identity.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <User className="h-4 w-4 text-white/45" />
+                        )}
                       </div>
-                      <div>
-                        <p className="font-semibold text-white">{identity.external_user_id}</p>
-                        <p className="text-[10px] text-white/40">UUID: {identity.id.slice(0, 8)}...</p>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-white truncate max-w-[150px]">{identity.name || identity.external_user_id}</p>
+                        <p className="text-[10px] text-white/40 font-mono mt-0.5 truncate max-w-[150px]">NeoID: {identity.neoId || "Pending"}</p>
                       </div>
                     </div>
+                  </TableCell>
+                  <TableCell className="text-xs text-white/70 max-w-[160px] truncate">
+                    {identity.email}
                   </TableCell>
                   <TableCell className="text-xs font-medium text-white/70 capitalize">
                     {identity.identity_type}
@@ -227,37 +380,47 @@ export default function IdentitiesPage() {
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-white/60">
-                    {formatDistanceToNow(new Date(identity.created_at), { addSuffix: true })}
+                    {safeFormatDistanceToNow(identity.created_at)}
                   </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:bg-white/5 hover:text-white">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-[160px] border-white/[0.08] bg-[#0c0c0c] text-white">
-                        {identity.status === "active" ? (
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(identity.id, "suspended")} className="gap-2 text-xs focus:bg-white/5 focus:text-white">
-                            <Pause className="h-3.5 w-3.5 text-yellow-500" />
-                            Suspend Profile
+                  <TableCell onClick={(e) => e.stopPropagation()} className="text-right">
+                    <div className="flex justify-end items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedIdentity(identity)}
+                        className="h-7 text-[10.5px] border border-white/5 hover:bg-white/5 hover:text-white"
+                      >
+                        Inspect
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:bg-white/5 hover:text-white">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[160px] border-white/[0.08] bg-[#0c0c0c] text-white shadow-xl">
+                          {identity.status === "active" ? (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(identity.id, "suspended")} className="gap-2 text-xs focus:bg-white/5 focus:text-white">
+                              <Pause className="h-3.5 w-3.5 text-yellow-500" />
+                              Suspend Profile
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(identity.id, "active")} className="gap-2 text-xs focus:bg-white/5 focus:text-white">
+                              <Play className="h-3.5 w-3.5 text-emerald-500" />
+                              Activate Profile
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => handleResetBiometrics(identity.id)} className="gap-2 text-xs focus:bg-white/5 focus:text-white">
+                            <RefreshCw className="h-3.5 w-3.5 text-blue-400" />
+                            Reset Biometrics
                           </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(identity.id, "active")} className="gap-2 text-xs focus:bg-white/5 focus:text-white">
-                            <Play className="h-3.5 w-3.5 text-emerald-500" />
-                            Activate Profile
+                          <DropdownMenuItem onClick={() => handleDelete(identity.id)} className="gap-2 text-xs text-red-400 focus:bg-red-500/10 focus:text-red-400">
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Purge Identity
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem onClick={() => handleResetBiometrics(identity.id)} className="gap-2 text-xs focus:bg-white/5 focus:text-white">
-                          <RefreshCw className="h-3.5 w-3.5 text-blue-400" />
-                          Reset Biometrics
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(identity.id)} className="gap-2 text-xs text-red-400 focus:bg-red-500/10 focus:text-red-400">
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Purge Identity
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -265,6 +428,309 @@ export default function IdentitiesPage() {
           </Table>
         )}
       </ChartCard>
+
+      {/* Identity Detail Inspector Dialog */}
+      <Dialog open={selectedIdentity !== null} onOpenChange={(open) => !open && setSelectedIdentity(null)}>
+        <DialogContent className="max-w-2xl bg-[#080808]/95 border-white/10 text-white backdrop-blur-xl rounded-2xl shadow-2xl overflow-y-auto max-h-[85vh] scrollbar-thin">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-md font-semibold text-white/90 border-b border-white/[0.06] pb-2.5">
+              <Info className="h-4 w-4 text-[#00E5A8]" />
+              Secure Identity Verification Inspector
+            </DialogTitle>
+            <DialogDescription className="text-white/40 text-xs">
+              Live identity metrics and Firestore profile sync parameters
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedIdentity && (
+            <div className="space-y-5 py-2">
+              
+              {/* Header Status & UUID Info */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-white/[0.015] border border-white/[0.04] gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-white/30">External identity reference</p>
+                  <p className="font-semibold text-white text-sm mt-0.5">{selectedIdentity.external_user_id}</p>
+                  <p className="text-[10px] text-white/30 font-mono mt-0.5">DB Identity ID: {selectedIdentity.id}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="rounded bg-[#00E5A8]/10 border border-[#00E5A8]/20 px-2 py-0.5 text-[9px] font-semibold text-[#00E5A8] uppercase tracking-wider">
+                    {selectedIdentity.identity_type}
+                  </span>
+                  <StatusBadge variant="member" status={selectedIdentity.status.toLowerCase()} />
+                </div>
+              </div>
+
+              {/* Grid content split between Firestore user profile details & Biometric data */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                
+                {/* Left Side: Firestore User Profile */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-semibold text-white/70 uppercase tracking-wider border-l-2 border-[#00E5A8] pl-2 leading-none">
+                    Digital ID & Contact Details
+                  </h4>
+                  
+                  {loadingProfile ? (
+                    <div className="flex h-36 items-center justify-center border border-white/[0.04] bg-white/[0.005] rounded-xl">
+                      <Loader2 className="h-6 w-6 animate-spin text-[#00E5A8]" />
+                    </div>
+                  ) : firestoreProfile ? (
+                    <div className="p-4 rounded-xl border border-white/[0.05] bg-white/[0.01] space-y-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#00E5A8]/20 to-[#0EA5E9]/20 border border-white/10 flex items-center justify-center text-white/60 text-lg font-bold uppercase overflow-hidden shrink-0">
+                          {firestoreProfile.photoURL ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={firestoreProfile.photoURL} alt={firestoreProfile.name} className="h-full w-full object-cover" />
+                          ) : (
+                            firestoreProfile.name?.charAt(0) || "U"
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h5 className="text-[13px] font-semibold text-white/90 truncate">{firestoreProfile.name}</h5>
+                          <span className="rounded-full bg-[#00E5A8]/10 border border-[#00E5A8]/15 px-1.5 py-0.5 text-[8.5px] font-semibold text-[#00E5A8] select-none">
+                            {firestoreProfile.verificationLevel || "VERIFIED"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 border-t border-white/[0.04] pt-3.5 text-[11px]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/35 flex items-center gap-1">
+                            <Mail className="h-3.5 w-3.5 text-white/20" />
+                            Email Address
+                          </span>
+                          <span className="text-white/85 font-medium">{firestoreProfile.email}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/35 flex items-center gap-1">
+                            <Phone className="h-3.5 w-3.5 text-white/20" />
+                            Phone Coordinate
+                          </span>
+                          <span className="text-white/85 font-medium">{firestoreProfile.phone || "Not Enrolled"}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/35 flex items-center gap-1">
+                            <Building className="h-3.5 w-3.5 text-white/20" />
+                            Permanent NeoID
+                          </span>
+                          <span className="text-[#00E5A8] font-mono font-semibold">{firestoreProfile.neoId}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/35 flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5 text-white/20" />
+                            Joined Portal
+                          </span>
+                          <span className="text-white/70 font-medium">{safeFormatDate(firestoreProfile.createdAt)}</span>
+                        </div>
+                      </div>
+
+                      {/* Render QR code preview */}
+                      {firestoreProfile.qrCode && (
+                        <div className="border-t border-white/[0.04] pt-3 flex flex-col items-center gap-2">
+                          <p className="text-[9.5px] text-white/30 font-medium">Digital ID Signature QR Code</p>
+                          <div className="h-20 w-20 bg-white p-1 rounded border border-white/10 shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={firestoreProfile.qrCode} alt="QR Code" className="h-full w-full" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl border border-white/[0.05] bg-white/[0.01] space-y-3.5">
+                      {/* Fallback to inline identity data if firestoreProfile wasn't fetchable */}
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#00E5A8]/20 to-[#0EA5E9]/20 border border-white/10 flex items-center justify-center text-white/60 text-lg font-bold uppercase overflow-hidden shrink-0">
+                          {selectedIdentity.photoURL ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={selectedIdentity.photoURL} alt={selectedIdentity.name} className="h-full w-full object-cover" />
+                          ) : (
+                            selectedIdentity.name?.charAt(0) || "U"
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h5 className="text-[13px] font-semibold text-white/90 truncate">{selectedIdentity.name || "Enrolled User"}</h5>
+                          <span className="rounded-full bg-white/5 border border-white/10 px-1.5 py-0.5 text-[8.5px] font-semibold text-white/50">
+                            VERIFIED
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 border-t border-white/[0.04] pt-3.5 text-[11px]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/35 flex items-center gap-1">
+                            <Mail className="h-3.5 w-3.5 text-white/20" />
+                            Email Address
+                          </span>
+                          <span className="text-white/85 font-medium">{selectedIdentity.email}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/35 flex items-center gap-1">
+                            <Phone className="h-3.5 w-3.5 text-white/20" />
+                            Phone Coordinate
+                          </span>
+                          <span className="text-white/85 font-medium">{selectedIdentity.phone || "Not Enrolled"}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/35 flex items-center gap-1">
+                            <Building className="h-3.5 w-3.5 text-white/20" />
+                            Permanent NeoID
+                          </span>
+                          <span className="text-[#00E5A8] font-mono font-semibold">{selectedIdentity.neoId || "N/A"}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/35 flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5 text-white/20" />
+                            Joined Portal
+                          </span>
+                          <span className="text-white/70 font-medium">{safeFormatDate(selectedIdentity.created_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Side: SQL Biometrics and System Data */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-semibold text-white/70 uppercase tracking-wider border-l-2 border-sky-400 pl-2 leading-none">
+                    Security Credentials & Keys
+                  </h4>
+                  
+                  <div className="p-4 rounded-xl border border-white/[0.05] bg-white/[0.01] space-y-3.5 text-[11px]">
+                    <div className="flex justify-between items-center py-0.5 border-b border-white/[0.03] pb-2">
+                      <span className="text-white/40">Enrollment Lifecycle</span>
+                      <span className={cn(
+                        "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase",
+                        selectedIdentity.enrollment_status === "enrolled" ? "bg-emerald-500/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-400"
+                      )}>
+                        {selectedIdentity.enrollment_status}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {/* Face Biometric Status */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/35 flex items-center gap-1.5">
+                          <Camera className="h-3.5 w-3.5 text-[#00E5A8]/70" />
+                          Face Embedding ID
+                        </span>
+                        {selectedIdentity.face_embedding_id ? (
+                          <span className="font-mono text-white/75 text-[10px] select-all truncate max-w-[120px]">
+                            {selectedIdentity.face_embedding_id}
+                          </span>
+                        ) : (
+                          <span className="text-white/20 select-none">Not Enrolled</span>
+                        )}
+                      </div>
+
+                      {/* Fingerprint Biometric Status */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/35 flex items-center gap-1.5">
+                          <Fingerprint className="h-3.5 w-3.5 text-sky-400/70" />
+                          Fingerprint Keys
+                        </span>
+                        <span className="text-white/75 font-medium">
+                          {selectedIdentity.is_fingerprint_enrolled ? "Enrolled & Active" : "Not Enrolled"}
+                        </span>
+                      </div>
+
+                      {/* Iris Biometric Status */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/35 flex items-center gap-1.5">
+                          <ShieldCheck className="h-3.5 w-3.5 text-purple-400/70" />
+                          Iris Recognition
+                        </span>
+                        <span className="text-white/75 font-medium">
+                          {selectedIdentity.is_iris_enrolled ? "Enrolled & Active" : "Not Enrolled"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 border-t border-white/[0.04] pt-3 text-[10px] text-white/35">
+                      <div className="flex justify-between">
+                        <span>Organization ID</span>
+                        <span className="font-mono truncate max-w-[140px] text-white/50">{selectedIdentity.organization_id}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Application ID</span>
+                        <span className="font-mono truncate max-w-[140px] text-white/50">{selectedIdentity.application_id}</span>
+                      </div>
+                      {selectedIdentity.site_id && (
+                        <div className="flex justify-between">
+                          <span>Assigned Site ID</span>
+                          <span className="font-mono truncate max-w-[140px] text-white/50">{selectedIdentity.site_id}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Raw metadata parameters */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] uppercase tracking-wider text-white/30 pl-1 font-semibold">Raw Identity Parameters</p>
+                <div className="max-h-[140px] overflow-y-auto bg-black border border-white/[0.05] p-3 rounded-lg font-mono text-[9px] text-[#00E5A8]/80 leading-relaxed scrollbar-thin">
+                  <pre>{JSON.stringify({ ...selectedIdentity, firestoreProfile }, null, 2)}</pre>
+                </div>
+              </div>
+
+              {/* Drawer actions footer */}
+              <div className="flex flex-wrap items-center justify-between border-t border-white/[0.06] pt-4 mt-3 gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs border-white/10 text-white/70 hover:bg-white/[0.05]"
+                    onClick={() => handleResetBiometrics(selectedIdentity.id)}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5 text-blue-400" />
+                    Reset Biometrics
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs text-red-400 border-red-500/10 hover:bg-red-500/5 hover:border-red-500/20"
+                    onClick={() => handleDelete(selectedIdentity.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                    Purge Identity
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {selectedIdentity.status === "active" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs border-yellow-500/10 text-yellow-500 hover:bg-yellow-500/5"
+                      onClick={() => handleUpdateStatus(selectedIdentity.id, "suspended")}
+                    >
+                      <Pause className="h-3.5 w-3.5 mr-1.5" />
+                      Suspend Profile
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white"
+                      onClick={() => handleUpdateStatus(selectedIdentity.id, "active")}
+                    >
+                      <Play className="h-3.5 w-3.5 mr-1.5" />
+                      Activate Profile
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    onClick={() => setSelectedIdentity(null)}
+                    className="h-8 text-xs text-white/50 hover:text-white"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

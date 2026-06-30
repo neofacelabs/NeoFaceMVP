@@ -92,3 +92,39 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
   }
 }
+
+export async function PATCH(req: Request) {
+  try {
+    const auth = await authenticateRequest(req);
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { name, phone } = await req.json();
+
+    const userDocRef = adminDb.collection("users").doc(auth.uuid);
+    let userDoc = await userDocRef.get();
+
+    if (!userDoc.exists) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    const updates: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (typeof name === "string") updates.name = name;
+    if (typeof phone === "string") updates.phone = phone;
+
+    await userDocRef.update(updates);
+
+    // Fetch the updated document to return it
+    const updatedDoc = await userDocRef.get();
+    return NextResponse.json({
+      ...updatedDoc.data(),
+      id: auth.uuid
+    });
+  } catch (err: any) {
+    console.error("Error updating profile:", err);
+    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
+  }
+}
