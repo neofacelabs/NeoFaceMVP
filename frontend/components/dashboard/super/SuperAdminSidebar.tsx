@@ -26,6 +26,7 @@ import {
   Shield,
   Zap,
   ScanFace,
+  Key,
 } from "lucide-react";
 
 export const superAdminNav = [
@@ -33,6 +34,7 @@ export const superAdminNav = [
   { id: "organizations", label: "Organizations", href: "/super/organizations", icon: Building2, section: "PLATFORM" },
   { id: "projects", label: "Projects", href: "/super/projects", icon: FolderKanban, section: "PLATFORM" },
   { id: "identities", label: "Identities", href: "/super/identities", icon: Users, section: "PLATFORM" },
+  { id: "credentials", label: "Credentials Control", href: "/super/credentials", icon: Key, section: "PLATFORM" },
   { id: "authentication", label: "Authentication", href: "/super/authentication", icon: ZapIcon, section: "OPERATIONS" },
   { id: "devices", label: "Devices", href: "/super/devices", icon: HardDrive, section: "OPERATIONS" },
   { id: "security", label: "Security Center", href: "/super/security", icon: Shield, section: "OPERATIONS" },

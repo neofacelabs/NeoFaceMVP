@@ -23,8 +23,8 @@ import {
   Building2,
 } from "lucide-react";
 
-export function getOrgAdminNav(orgSlug: string) {
-  const base = `/org/${orgSlug}`;
+export function getOrgAdminNav() {
+  const base = `/org-admin`;
   return [
     { id: "overview", label: "Overview", href: base, icon: LayoutDashboard, section: "ORGANIZATION" },
     { id: "sites", label: "Sites", href: `${base}/sites`, icon: Map, section: "ORGANIZATION" },
@@ -56,13 +56,13 @@ export function OrgAdminSidebar({ orgSlug, orgName }: OrgAdminSidebarProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
-    if (href === `/org/${orgSlug}`) {
+    if (href === `/org-admin`) {
       return pathname === href || pathname === href + "/";
     }
     return pathname.startsWith(href);
   };
 
-  const navItems = getOrgAdminNav(orgSlug);
+  const navItems = getOrgAdminNav();
 
   return (
     <motion.aside

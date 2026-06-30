@@ -70,7 +70,7 @@ export default function DashboardRedirectPage() {
                 location: "Primary Campus",
               });
 
-              router.replace(`/org/neoface-default/projects/${primaryProject.id}`);
+              router.replace("/org-admin");
             } else {
               // No projects found — redirect to member self-service portal
               setPlatformRole("member");
