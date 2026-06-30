@@ -99,7 +99,7 @@ export default function OrganizationIntegrationsPage() {
     if (!webhookUrl.trim()) return;
     try {
       setSubmittingWebhook(true);
-      await apiClient.post("webhooks", { url: webhookUrl, events: ["auth.success", "auth.fail", "enrollment.complete"] });
+      await apiClient.post("webhooks", { url: webhookUrl, events: ["identity.enrolled", "identity.verified", "session.created", "session.failed"] });
       toast.success("Webhook endpoint registered successfully!");
       setWebhookUrl("");
       setIsWebhookOpen(false);
