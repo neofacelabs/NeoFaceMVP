@@ -137,5 +137,5 @@ class ApiKeyService:
         page: int = 1,
         page_size: int = 50,
     ) -> tuple[list[ApiKeyResponse], int]:
-        keys, total = await self.repo.list_by_org(org_id, page=page, page_size=page_size)
+        keys, total = await self.repo.list_by_org(org_id, page=page, page_size=page_size, include_revoked=True)
         return [ApiKeyResponse.model_validate(k) for k in keys], total

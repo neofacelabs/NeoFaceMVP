@@ -95,3 +95,39 @@ async def delete_api_key(
 ) -> ApiKeyResponse:
     svc = ApiKeyService(db)
     return await svc.revoke_key(key_id, ctx.org_id)
+
+
+@router.post(
+    "/{key_id}/pause",
+    response_model=ApiKeyResponse,
+    summary="Pause an API key",
+)
+async def pause_api_key(
+    key_id: uuid.UUID,
+    ctx: OrgContext = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
+) -> ApiKeyResponse:
+    from fastapi import HTTPException
+    svc = ApiKeyService(db)
+    updated = await svc.repo.update_status(key_id, "paused")
+    if not updated:
+        raise HTTPException(status_code=404, detail="API key not found")
+    return ApiKeyResponse.model_validate(updated)
+
+
+@router.post(
+    "/{key_id}/resume",
+    response_model=ApiKeyResponse,
+    summary="Resume a paused API key",
+)
+async def resume_api_key(
+    key_id: uuid.UUID,
+    ctx: OrgContext = Depends(get_org_context),
+    db: AsyncSession = Depends(get_db),
+) -> ApiKeyResponse:
+    from fastapi import HTTPException
+    svc = ApiKeyService(db)
+    updated = await svc.repo.update_status(key_id, "active")
+    if not updated:
+        raise HTTPException(status_code=404, detail="API key not found")
+    return ApiKeyResponse.model_validate(updated)

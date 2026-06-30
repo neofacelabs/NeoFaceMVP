@@ -114,11 +114,6 @@ class ApiKeyRepository:
         if not include_revoked:
             query = query.where("status", "==", "active")
 
-        count_res = await query.count().get()
-        total = count_res[0].value
-
-        offset = (page - 1) * page_size
-        query = query.order_by("created_at", direction="DESCENDING").offset(offset).limit(page_size)
         docs = await query.get()
 
         keys = []
@@ -138,7 +133,15 @@ class ApiKeyRepository:
                 created_at=data.get("created_at"),
                 last_used_at=data.get("last_used_at"),
             ))
-        return keys, total
+        
+        # Sort in memory
+        keys.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
+        total = len(keys)
+        
+        # Paginate in memory
+        offset = (page - 1) * page_size
+        paginated_keys = keys[offset : offset + page_size]
+        return paginated_keys, total
 
     async def update_status(self, key_id: uuid.UUID | str, status: str) -> AaaSApiKey | None:
         doc_ref = self.db.collection("api_keys").document(str(key_id))

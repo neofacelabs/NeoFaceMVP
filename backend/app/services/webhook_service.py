@@ -81,12 +81,6 @@ class WebhookService:
     ) -> tuple[list[WebhookResponse], int]:
         col = self.db.collection("webhook_endpoints")
         query = col.where("organization_id", "==", str(org_id)).where("status", "==", "active")
-        
-        count_res = await query.count().get()
-        total = count_res[0].value
-
-        offset = (page - 1) * page_size
-        query = query.order_by("created_at", direction="DESCENDING").offset(offset).limit(page_size)
         docs = await query.get()
 
         endpoints = []
@@ -105,7 +99,15 @@ class WebhookService:
                 created_at=data.get("created_at"),
                 updated_at=data.get("updated_at"),
             )))
-        return endpoints, total
+
+        # Sort in memory
+        endpoints.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
+        total = len(endpoints)
+
+        # Paginate in memory
+        offset = (page - 1) * page_size
+        paginated_endpoints = endpoints[offset : offset + page_size]
+        return paginated_endpoints, total
 
     async def get_endpoint(
         self, endpoint_id: uuid.UUID | str, org_id: uuid.UUID | str
@@ -209,12 +211,6 @@ class WebhookService:
         await self.get_endpoint(endpoint_id, org_id)
         col = self.db.collection("webhook_deliveries")
         query = col.where("endpoint_id", "==", str(endpoint_id))
-
-        count_res = await query.count().get()
-        total = count_res[0].value
-
-        offset = (page - 1) * page_size
-        query = query.order_by("created_at", direction="DESCENDING").offset(offset).limit(page_size)
         docs = await query.get()
 
         deliveries = []
@@ -230,7 +226,15 @@ class WebhookService:
                 response_body=data.get("response_body"),
                 created_at=data.get("created_at"),
             )))
-        return deliveries, total
+            
+        # Sort in memory
+        deliveries.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
+        total = len(deliveries)
+        
+        # Paginate in memory
+        offset = (page - 1) * page_size
+        paginated_deliveries = deliveries[offset : offset + page_size]
+        return paginated_deliveries, total
 
     async def delete_endpoint(
         self, endpoint_id: uuid.UUID | str, org_id: uuid.UUID | str

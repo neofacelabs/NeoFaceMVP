@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Layers, Key, Plus, Trash2, Check, Copy, ExternalLink, Loader2 } from "lucide-react";
+import { Layers, Key, Plus, Trash2, Check, Copy, ExternalLink, Loader2, Play, Pause } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api";
@@ -71,6 +71,26 @@ export default function OrganizationIntegrationsPage() {
       } catch {
         toast.error("Failed to revoke key.");
       }
+    }
+  };
+
+  const handlePauseKey = async (id: string) => {
+    try {
+      await apiClient.post(`api-keys/${id}/pause`);
+      toast.success("API key paused.");
+      loadIntegrationsData();
+    } catch {
+      toast.error("Failed to pause key.");
+    }
+  };
+
+  const handleResumeKey = async (id: string) => {
+    try {
+      await apiClient.post(`api-keys/${id}/resume`);
+      toast.success("API key resumed.");
+      loadIntegrationsData();
+    } catch {
+      toast.error("Failed to resume key.");
     }
   };
 
@@ -201,15 +221,49 @@ export default function OrganizationIntegrationsPage() {
               {apiKeys.map((key) => (
                 <div key={key.id} className="flex items-center justify-between rounded-lg bg-white/[0.02] p-3 border border-white/[0.04]">
                   <div>
-                    <p className="text-xs font-semibold text-white/80">{key.name}</p>
-                    <p className="text-[10px] text-white/35">Prefix: <code className="text-white/50">{key.key_prefix}</code> | Status: {key.status}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-semibold text-white/80">{key.name}</p>
+                      {key.status === "active" && (
+                        <span className="rounded bg-[#00E5A8]/10 border border-[#00E5A8]/15 px-1 py-0.5 text-[9px] text-[#00E5A8]">Live</span>
+                      )}
+                      {key.status === "paused" && (
+                        <span className="rounded bg-amber-500/10 border border-amber-500/15 px-1 py-0.5 text-[9px] text-amber-400">Paused</span>
+                      )}
+                      {key.status === "revoked" && (
+                        <span className="rounded bg-white/5 border border-white/10 px-1 py-0.5 text-[9px] text-white/40">Revoked</span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-white/35 mt-0.5">Prefix: <code className="text-white/50">{key.key_prefix}</code></p>
                   </div>
-                  <button
-                    onClick={() => handleRevokeKey(key.id)}
-                    className="flex h-7 w-7 items-center justify-center rounded-md border border-white/[0.05] bg-white/[0.02] text-white/40 hover:bg-red-500/10 hover:text-red-400 transition-colors"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {key.status === "active" && (
+                      <button
+                        onClick={() => handlePauseKey(key.id)}
+                        title="Pause API Key"
+                        className="flex h-7 w-7 items-center justify-center rounded-md border border-white/[0.05] bg-white/[0.02] text-white/40 hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
+                      >
+                        <Pause className="h-3 w-3" />
+                      </button>
+                    )}
+                    {key.status === "paused" && (
+                      <button
+                        onClick={() => handleResumeKey(key.id)}
+                        title="Resume API Key"
+                        className="flex h-7 w-7 items-center justify-center rounded-md border border-white/[0.05] bg-white/[0.02] text-white/40 hover:bg-[#00E5A8]/10 hover:text-[#00E5A8] transition-colors"
+                      >
+                        <Play className="h-3 w-3" />
+                      </button>
+                    )}
+                    {key.status !== "revoked" && (
+                      <button
+                        onClick={() => handleRevokeKey(key.id)}
+                        title="Revoke / Delete API Key"
+                        className="flex h-7 w-7 items-center justify-center rounded-md border border-white/[0.05] bg-white/[0.02] text-white/40 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
