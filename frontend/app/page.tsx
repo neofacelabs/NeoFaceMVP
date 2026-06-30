@@ -643,9 +643,14 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
 
               <div className="lg:col-span-5 space-y-7">
-                <span className="font-mono text-[9.5px] uppercase tracking-[0.25em] text-[#10b981] block">
-                  Developer First
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[9.5px] uppercase tracking-[0.25em] text-[#10b981]">
+                    Developer First
+                  </span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[8.5px] font-mono font-semibold uppercase tracking-wider border border-[#00C2FF]/20 bg-[#00C2FF]/5 text-[#00C2FF] animate-pulse">
+                    Coming Soon
+                  </span>
+                </div>
                 <h2 className="text-[28px] sm:text-[40px] font-extrabold text-white tracking-tight leading-tight">
                   Built for Developers. <br />Deployed in minutes.
                 </h2>
