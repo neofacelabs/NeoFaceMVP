@@ -167,9 +167,10 @@ class UserRepository:
         name: str,
         email: str,
         phone: str | None = None,
+        user_id: uuid.UUID | None = None,
     ) -> User:
         """Create a biometric-only user (no password required)."""
-        uid = uuid.uuid4()
+        uid = user_id or uuid.uuid4()
         now = datetime.now(timezone.utc)
         user = User(
             id=uid,

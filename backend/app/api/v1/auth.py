@@ -247,6 +247,11 @@ async def google_sign_in(
             detail="Google account does not have an associated email address.",
         )
 
+    # Compute deterministic UUID matching the frontend for this Firebase Auth user
+    import uuid
+    NAMESPACE_UUID = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+    deterministic_uuid = uuid.uuid5(NAMESPACE_UUID, firebase_payload.uid)
+
     user_repo = UserRepository(db)
 
     # Find existing user or auto-create one
@@ -255,6 +260,7 @@ async def google_sign_in(
         user = await user_repo.create_biometric_user(
             name=firebase_payload.name or firebase_payload.email.split("@")[0],
             email=firebase_payload.email,
+            user_id=deterministic_uuid,
         )
         # Link Google users to default organization
         from app.repositories.organization_repository import OrganizationRepository
@@ -269,6 +275,17 @@ async def google_sign_in(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="This account has been deactivated.",
             )
+        # Ensure the Firebase uid is linked in Firestore if they were created via other methods
+        try:
+            doc_ref = db.collection("users").document(str(user.id))
+            doc = await doc_ref.get()
+            if doc.exists:
+                doc_data = doc.to_dict()
+                if not doc_data.get("uid"):
+                    await doc_ref.update({"uid": firebase_payload.uid})
+                    logger.info("Linked existing user to Firebase UID: %s", firebase_payload.uid)
+        except Exception as update_err:
+            logger.warning("Could not update user UID mapping: %s", str(update_err))
         logger.info("Existing user signed in via Google Auth", user_id=str(user.id))
 
     token_pair = JWTHandler.create_token_pair(
